@@ -1,0 +1,1400 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>צ׳יפטייבל</title>
+<meta name="description" content="ניהול ערבי פוקר בין חברים: כניסות, ריביי, הוצאות אירוח והתחשבנות אוטומטית.">
+<meta name="theme-color" content="#0d2622">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="צ׳יפטייבל">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Karantina:wght@400;700&family=Rubik:wght@500;600;700&display=swap">
+<style>
+/* Layout: one mobile column on a felt table; sticky top rail, sticky bottom action bar on the game screen. */
+:root {
+  --felt: #0d2622;
+  --felt-hi: #164039;
+  --surface: #12302b;
+  --surface-2: #19403a;
+  --line: #2a5249;
+  --ivory: #f1e9d8;
+  --muted: #9db5ad;
+  --brass: #d9ad5f;
+  --brass-ink: #23180a;
+  --win: #6fdca4;
+  --loss: #f07d6e;
+  --chip-red: #c8443a;
+  --chip-blue: #2f6fc0;
+  --chip-black: #22201e;
+  --chip-white: #ece6da;
+  --f-display: "Karantina", "Secular One", "Rubik", system-ui, sans-serif;
+  --f-body: "Assistant", "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num: "Rubik", "Assistant", system-ui, sans-serif;
+  --r: 14px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(120% 70% at 50% -10%, var(--felt-hi) 0%, transparent 60%),
+    radial-gradient(90% 60% at 50% 120%, #071a17 0%, transparent 70%),
+    var(--felt);
+  background-color: var(--felt);
+  background-attachment: fixed;
+  color: var(--ivory);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 30; background: var(--felt);
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.win { color: var(--win); }
+.loss { color: var(--loss); }
+
+.shell {
+  max-width: 600px; margin: 0 auto; min-height: 100%;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 120px;
+}
+
+/* ---------- top rail ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  display: flex; align-items: center; gap: 10px;
+  padding-block: 10px; margin-inline: -4px;
+  background: linear-gradient(var(--felt) 70%, transparent);
+}
+.brand {
+  font-family: var(--f-display); font-size: 30px; line-height: 1; letter-spacing: .5px;
+  color: var(--brass); background: none; border: 0; padding: 4px; display: flex; align-items: center; gap: 8px;
+}
+.brand svg { width: 26px; height: 26px; }
+.topbar .spacer { flex: 1; }
+.iconbtn {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ivory);
+}
+.iconbtn svg { width: 20px; height: 20px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--brass); }
+.avatar.txt { display: grid; place-items: center; background: var(--brass); color: var(--brass-ink); font-weight: 800; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 99px;
+  font-size: 13px; font-weight: 700; letter-spacing: .3px; background: var(--surface-2); color: var(--muted);
+}
+.pill.live { background: color-mix(in srgb, var(--loss) 22%, transparent); color: #ffb3a8; }
+.pill.live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--loss); animation: pulse 1.6s infinite; }
+.pill.demo { background: color-mix(in srgb, var(--brass) 20%, transparent); color: var(--brass); }
+.pill.sample { background: transparent; border: 1px dashed var(--line); }
+@keyframes pulse { 50% { opacity: .3; } }
+
+/* ---------- type ---------- */
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 400; }
+.h1 { font-family: var(--f-display); font-size: 52px; line-height: .95; }
+.h2 { font-family: var(--f-display); font-size: 34px; line-height: 1; }
+.label { font-size: 13px; font-weight: 700; letter-spacing: .6px; color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.section { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.row.wrap { flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ivory); font-weight: 700; font-size: 16px;
+  transition: transform .08s ease, background .15s;
+}
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: var(--brass-ink); }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--loss); }
+.btn.block { width: 100%; }
+.btn.sm { min-height: 36px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
+.btn svg { width: 18px; height: 18px; }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+
+/* ---------- inputs ---------- */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.input, select.input {
+  min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--felt); color: var(--ivory); width: 100%;
+}
+.input::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+.input:focus { outline: none; border-color: var(--brass); }
+
+/* ---------- login ---------- */
+.login { min-height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 28px; padding-block: 40px; }
+.login .h1 { font-size: 76px; color: var(--brass); }
+.login p { margin: 0; max-width: 34ch; font-size: 18px; color: var(--muted); }
+.gbtn { background: var(--ivory); color: #1d1d1d; border-color: var(--ivory); }
+.gbtn svg { width: 20px; height: 20px; }
+.felt-chips { display: flex; gap: 0; }
+.felt-chips .chip { width: 54px; height: 54px; margin-inline-start: -14px; }
+.felt-chips .chip:first-child { margin-inline-start: 0; }
+
+/* ---------- chip ---------- */
+.chip {
+  --c: var(--chip-red);
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  background:
+    radial-gradient(circle, var(--c) 0 38%, var(--chip-white) 39% 43%, var(--c) 44% 100%);
+  border: 3px dashed var(--chip-white);
+  box-shadow: 0 0 0 1.5px var(--c), 0 2px 4px rgba(0,0,0,.45);
+}
+.chip.blue { --c: var(--chip-blue); }
+.chip.black { --c: var(--chip-black); }
+.chip.brass { --c: var(--brass); }
+.chipstack { display: flex; align-items: center; }
+.chipstack .chip { margin-inline-start: -12px; }
+.chipstack .chip:first-child { margin-inline-start: 0; }
+.chip.pop { animation: chipIn .35s cubic-bezier(.3,1.6,.5,1); }
+@keyframes chipIn { from { transform: translateY(-14px) scale(.6); opacity: 0; } }
+
+/* ---------- cards & lists ---------- */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+.list > * + * { border-top: 1px solid var(--line); }
+.item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: none; border: 0; width: 100%; text-align: start; color: inherit; }
+button.item:active { background: var(--surface-2); }
+.item .t { font-weight: 700; }
+.item .s { font-size: 14px; color: var(--muted); }
+.chev { color: var(--muted); }
+
+/* ---------- game header ---------- */
+.ghead { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.scoreboard {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 16px;
+  border-radius: var(--r); overflow: hidden; background: var(--line); border: 1px solid var(--line);
+}
+.scoreboard > div { background: var(--surface); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.scoreboard .v { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 600; line-height: 1.1; }
+.scoreboard .v.brass { color: var(--brass); }
+.scoreboard .k { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .4px; }
+
+/* ---------- player rows ---------- */
+.players { display: flex; flex-direction: column; gap: 10px; }
+.player {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
+  padding: 14px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line);
+}
+.player .name { font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.player .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player .meta { grid-column: 1; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); flex-wrap: wrap; }
+.player .actions { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 8px; align-items: center; }
+.rebuy {
+  min-height: 56px; min-width: 88px; border-radius: 14px; border: 0; padding: 0 14px;
+  background: var(--brass); color: var(--brass-ink); font-weight: 800; font-size: 16px; line-height: 1.1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 3px 0 #8a6a31; transition: transform .07s;
+}
+.rebuy small { font-weight: 700; font-size: 12px; opacity: .75; }
+.rebuy:active { transform: translateY(3px); box-shadow: 0 0 0 #8a6a31; }
+.mini { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); display: grid; place-items: center; }
+.mini svg { width: 18px; height: 18px; }
+.badge-n { font-family: var(--f-num); font-weight: 700; color: var(--ivory); }
+.flash { animation: flash .6s ease; }
+@keyframes flash { 0% { background: color-mix(in srgb, var(--brass) 35%, var(--surface)); } }
+
+/* ---------- feed ---------- */
+.feed { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.feed .e { display: flex; gap: 10px; align-items: baseline; color: var(--muted); }
+.feed .e b { color: var(--ivory); font-weight: 700; }
+.feed .e time { font-family: var(--f-num); font-variant-numeric: tabular-nums; flex: none; width: 44px; }
+
+/* ---------- bottom bar ---------- */
+.bottombar {
+  position: fixed; inset: auto 0 0 0; z-index: 25;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(transparent, var(--felt) 30%);
+}
+.bottombar .inner { max-width: 600px; margin: 0 auto; display: flex; gap: 10px; }
+.bottombar .btn { flex: 1; }
+
+/* ---------- counting ---------- */
+.countrow { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; padding: 12px 16px; }
+.countrow .input { text-align: center; font-family: var(--f-num); font-size: 20px; font-variant-numeric: tabular-nums; }
+.meter { height: 10px; border-radius: 99px; background: var(--felt); overflow: hidden; border: 1px solid var(--line); }
+.meter > i { display: block; height: 100%; background: var(--brass); transition: width .3s; }
+.meter.over > i { background: var(--loss); }
+.meter.ok > i { background: var(--win); }
+.notice { padding: 12px 14px; border-radius: 12px; font-size: 15px; border: 1px solid var(--line); background: var(--surface); }
+.notice.warn { border-color: color-mix(in srgb, var(--loss) 55%, transparent); }
+.notice.good { border-color: color-mix(in srgb, var(--win) 55%, transparent); }
+.toggle { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--brass); }
+
+/* ---------- results ---------- */
+.results { width: 100%; border-collapse: collapse; font-size: 15px; }
+.results th { text-align: start; font-size: 12px; color: var(--muted); font-weight: 700; padding: 8px 6px; letter-spacing: .3px; }
+.results td { padding: 10px 6px; border-top: 1px solid var(--line); font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.results td:first-child { font-family: var(--f-body); font-weight: 700; }
+.results td.n { text-align: end; font-weight: 700; }
+.tablewrap { overflow-x: auto; }
+.transfer { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; padding: 14px 16px; align-items: center; }
+.transfer .who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; font-size: 17px; }
+.transfer .who .arrow { color: var(--brass); }
+.transfer .amt { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 700; color: var(--brass); }
+.transfer .how { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.transfer.paid { opacity: .5; }
+.transfer.paid .amt { text-decoration: line-through; }
+.method { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 99px; font-weight: 800; font-size: 13px; }
+.method.bit { background: #11a3a8; color: #032829; }
+.method.paybox { background: #2f6fc0; color: #fff; }
+.method.cash { background: #6fdca4; color: #0b2b1c; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.check input { width: 20px; height: 20px; accent-color: var(--win); }
+
+/* ---------- sheet (bottom modal) ---------- */
+.scrim { position: fixed; inset: 0; z-index: 40; background: rgba(4, 12, 10, .6); display: flex; align-items: flex-end; justify-content: center; animation: fade .15s; }
+.sheet {
+  width: 100%; max-width: 600px; max-height: 90%; overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0;
+  padding: 20px max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 14px; animation: up .22s cubic-bezier(.2,.9,.3,1);
+}
+.sheet .grab { width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: -6px auto 4px; }
+@keyframes fade { from { opacity: 0; } }
+@keyframes up { from { transform: translateY(40px); opacity: .4; } }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; }
+.seg span { display: grid; place-items: center; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); font-weight: 700; }
+.seg input:checked + span { background: var(--brass); color: var(--brass-ink); border-color: var(--brass); }
+.seg input:focus-visible + span { outline: 2px solid var(--brass); outline-offset: 2px; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); background: transparent; font-weight: 700; }
+.tag.on { background: var(--surface-2); border-color: var(--brass); }
+.tag .x { color: var(--muted); }
+
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; z-index: 50; left: 50%; transform: translateX(-50%);
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  background: var(--ivory); color: #142520; font-weight: 700; padding: 10px 18px; border-radius: 99px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4); animation: up .2s; max-width: calc(100% - 32px); text-align: center;
+}
+
+.empty { text-align: center; padding: 28px 16px; color: var(--muted); }
+.lb-rank { width: 28px; font-family: var(--f-display); font-size: 26px; color: var(--brass); text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- leaderboard ---------- */
+.podium {
+  display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; width: 100%;
+  background: none; border: 0; padding: 0; color: inherit; text-align: center;
+}
+.pod { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); min-width: 0; }
+.pod b { font-size: 16px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod .num { font-weight: 700; font-size: 15px; }
+.pod.p1 { order: 2; padding-block: 22px; border-color: var(--brass); }
+.pod.p1 .chip { width: 34px; height: 34px; }
+.pod.p2 { order: 1; } .pod.p3 { order: 3; }
+.seg-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg-tabs button { min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: transparent; font-weight: 700; font-size: 14px; }
+.seg-tabs button.on { background: var(--brass); color: var(--brass-ink); border-color: var(--brass); }
+.form { display: inline-flex; gap: 3px; vertical-align: middle; margin-inline-start: 6px; }
+.form i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.form i.w { background: var(--win); } .form i.l { background: var(--loss); }
+
+</style>
+</head>
+<body>
+<main class="shell" id="app" aria-live="polite"><div class="empty">טוען…</div></main>
+<div id="sheet" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<script>
+/* Firebase web config for project chiptable-66de8. These values are public by design;
+   the data is protected by firestore.rules (only the host writes). */
+window.PK_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCRu3_8WxxVXnBkOuBSK5_qIsn-V31Le_4",
+  authDomain: "chiptable-66de8.firebaseapp.com",
+  projectId: "chiptable-66de8",
+  storageBucket: "chiptable-66de8.firebasestorage.app",
+  messagingSenderId: "1054959904622",
+  appId: "1:1054959904622:web:8ac6dc5f10131d3cabc37f",
+};
+
+</script>
+<script>
+/* Sound effects synthesized with Web Audio — no audio files to load.
+   chip: a single chip landing · rebuy: a short stack of chips · undo · win: settlement chord · tap */
+(function () {
+  const PK = (window.PK = window.PK || {});
+  let ctx = null;
+  let muted = false;
+  try { muted = localStorage.getItem("pk-muted") === "1"; } catch (e) {}
+
+  function ac() {
+    if (!ctx) {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      ctx = new C();
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+
+  // A ceramic chip click: a very short band-passed noise burst plus a high ping.
+  function click(t, pitch = 1, gain = 0.5) {
+    const a = ac(); if (!a) return;
+    const len = Math.floor(a.sampleRate * 0.04);
+    const buf = a.createBuffer(1, len, a.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+    const src = a.createBufferSource(); src.buffer = buf;
+    const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 3800 * pitch; bp.Q.value = 2.5;
+    const g = a.createGain(); g.gain.value = gain;
+    src.connect(bp).connect(g).connect(a.destination);
+    src.start(t);
+
+    const o = a.createOscillator(); o.type = "sine"; o.frequency.value = 5200 * pitch;
+    const og = a.createGain();
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(gain * 0.12, t + 0.002);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    o.connect(og).connect(a.destination); o.start(t); o.stop(t + 0.08);
+  }
+
+  function tone(t, freq, dur, type = "triangle", gain = 0.18) {
+    const a = ac(); if (!a) return;
+    const o = a.createOscillator(); o.type = type; o.frequency.value = freq;
+    const g = a.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  const fx = {
+    tap() { const a = ac(); if (!a) return; click(a.currentTime, 1.3, 0.18); },
+    chip() { const a = ac(); if (!a) return; click(a.currentTime, 1, 0.55); },
+    rebuy() {
+      const a = ac(); if (!a) return; const t = a.currentTime;
+      [0, 0.055, 0.1, 0.14, 0.175].forEach((dt, i) => click(t + dt, 0.9 + i * 0.05, 0.5 - i * 0.05));
+    },
+    undo() { const a = ac(); if (!a) return; const t = a.currentTime; tone(t, 520, 0.12); tone(t + 0.09, 390, 0.16); },
+    win() {
+      const a = ac(); if (!a) return; const t = a.currentTime;
+      [0, 0.04, 0.08, 0.12, 0.16, 0.2, 0.24].forEach((dt) => click(t + dt, 0.8 + Math.random() * 0.4, 0.35));
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(t + 0.3 + i * 0.09, f, 0.9 - i * 0.1));
+    },
+    error() { const a = ac(); if (!a) return; tone(a.currentTime, 180, 0.22, "square", 0.08); },
+  };
+
+  PK.sound = {
+    play(name) {
+      if (muted || !fx[name]) return;
+      try { fx[name](); } catch (e) {}
+      if (navigator.vibrate && (name === "rebuy" || name === "chip")) navigator.vibrate(name === "rebuy" ? [12, 30, 12] : 10);
+    },
+    isMuted: () => muted,
+    toggle() {
+      muted = !muted;
+      try { localStorage.setItem("pk-muted", muted ? "1" : "0"); } catch (e) {}
+      if (!muted) fx.tap();
+      return muted;
+    },
+  };
+})();
+
+</script>
+<script>
+/* Settlement engine — pure functions, no DOM.
+   All money is calculated in agorot (integers) to avoid floating-point errors.
+   Rules:
+   - Every buy-in / rebuy = game.buyInAmount ₪ for game.chipsPerBuyIn chips (default 20 ₪ = 200 chips).
+   - Hosting expenses are split equally between all players; whoever paid gets credited back.
+   - At the end, each player's chips are converted back to ₪ and compared with what they put in.
+   - Transfers are minimized: the biggest debtor pays the biggest creditor, and so on. */
+(function () {
+  const PK = (window.PK = window.PK || {});
+
+  const sum = (arr, f = (x) => x) => arr.reduce((a, x) => a + f(x), 0);
+
+  // Split `total` agorot into n integer parts that sum exactly to total.
+  function splitEven(total, n) {
+    if (n <= 0) return [];
+    const base = Math.floor(total / n);
+    let rem = total - base * n;
+    return Array.from({ length: n }, () => base + (rem-- > 0 ? 1 : 0));
+  }
+
+  // Scale integer values so they sum to `target`, keeping proportions (largest remainder).
+  function scaleTo(values, target) {
+    const s = sum(values);
+    if (s === 0) return values.slice();
+    const raw = values.map((v) => (v * target) / s);
+    const out = raw.map(Math.floor);
+    let rem = target - sum(out);
+    raw
+      .map((r, i) => [r - Math.floor(r), i])
+      .sort((a, b) => b[0] - a[0])
+      .forEach(([, i]) => {
+        if (rem > 0) { out[i]++; rem--; }
+      });
+    return out;
+  }
+
+  // Round nets to whole shekels while keeping the total at exactly zero.
+  function roundBalanced(nets, unit) {
+    const r = nets.map((v) => Math.round(v / unit) * unit);
+    let drift = sum(r);
+    // push the drift onto the players whose rounding moved them the most
+    const order = r
+      .map((v, i) => [v - nets[i], i])
+      .sort((a, b) => (drift > 0 ? b[0] - a[0] : a[0] - b[0]));
+    let k = 0;
+    while (drift !== 0 && order.length) {
+      const i = order[k % order.length][1];
+      const step = drift > 0 ? -unit : unit;
+      r[i] += step;
+      drift += step;
+      k++;
+    }
+    return r;
+  }
+
+  function minimizeTransfers(rows, methodOf) {
+    const debtors = rows.filter((r) => r.net < 0).map((r) => ({ id: r.id, amt: -r.net }));
+    const creditors = rows.filter((r) => r.net > 0).map((r) => ({ id: r.id, amt: r.net }));
+    const transfers = [];
+    // Greedy: always match the biggest open debt with the biggest open credit.
+    for (let guard = 0; guard < 1000; guard++) {
+      const d = debtors.filter((x) => x.amt > 0).sort((a, b) => b.amt - a.amt)[0];
+      const c = creditors.filter((x) => x.amt > 0).sort((a, b) => b.amt - a.amt)[0];
+      if (!d || !c) break;
+      const pay = Math.min(d.amt, c.amt);
+      transfers.push({ from: d.id, to: c.id, amount: pay, method: methodOf(c.id) });
+      d.amt -= pay;
+      c.amt -= pay;
+    }
+    return transfers;
+  }
+
+  /**
+   * @param {object} game  the game document
+   * @param {object} opts  { adjust: bool — scale chip values when the count doesn't match,
+   *                         roundTo: agorot (100 = whole ₪, 1 = exact) }
+   */
+  function computeSettlement(game, opts = {}) {
+    const adjust = !!opts.adjust;
+    const unit = opts.roundTo ?? 100;
+    const buyIn = (game.buyInAmount ?? 20) * 100;
+    const chipsPer = game.chipsPerBuyIn ?? 200;
+    const players = game.players || [];
+    const expenses = game.expenses || [];
+
+    const invested = players.map((p) => (p.buyIns || 0) * buyIn);
+    const pot = sum(invested);
+    const chipsIssued = sum(players, (p) => (p.buyIns || 0) * chipsPer);
+    const chipsCounted = sum(players, (p) => Number(p.cashOut) || 0);
+    const diffChips = chipsCounted - chipsIssued;
+    const missing = players.filter((p) => p.cashOut === null || p.cashOut === undefined || p.cashOut === "");
+
+    let values = players.map((p) => Math.round(((Number(p.cashOut) || 0) * buyIn) / chipsPer));
+    if (adjust && diffChips !== 0 && chipsCounted > 0) values = scaleTo(values, pot);
+
+    const expensesTotal = sum(expenses, (e) => Math.round((Number(e.amount) || 0) * 100));
+    const shares = splitEven(expensesTotal, players.length);
+    const credits = players.map((p) =>
+      sum(expenses.filter((e) => e.paidBy === p.id), (e) => Math.round((Number(e.amount) || 0) * 100))
+    );
+
+    const exactNets = players.map((p, i) => values[i] - invested[i] - shares[i] + credits[i]);
+    const imbalance = sum(exactNets); // non-zero only when chips don't match and adjust is off
+    const balanced = imbalance === 0;
+    const nets = balanced ? roundBalanced(exactNets, unit) : exactNets;
+
+    const rows = players.map((p, i) => ({
+      id: p.id,
+      name: p.name,
+      buyIns: p.buyIns || 0,
+      chips: Number(p.cashOut) || 0,
+      invested: invested[i],
+      value: values[i],
+      share: shares[i],
+      credit: credits[i],
+      net: nets[i],
+    }));
+
+    const methodOf = (id) => (players.find((p) => p.id === id) || {}).method || "bit";
+    const transfers = balanced ? minimizeTransfers(rows, methodOf) : [];
+
+    return { pot, chipsIssued, chipsCounted, diffChips, missing, expensesTotal, imbalance, balanced, rows, transfers };
+  }
+
+  PK.settle = { computeSettlement, splitEven, scaleTo, roundBalanced, minimizeTransfers };
+  if (typeof module !== "undefined") module.exports = PK.settle;
+})();
+
+</script>
+<script>
+/* Data layer with two interchangeable backends:
+   - Firebase (Google sign-in + Firestore, real-time sync) when js/config.js has a Firebase config
+   - Demo (this device only, localStorage) when it doesn't — useful for trying the app before setup
+   Both expose the same API, so app.js never knows which one it is talking to. */
+(function () {
+  const PK = (window.PK = window.PK || {});
+  const FB = "https://www.gstatic.com/firebasejs/11.0.2/";
+
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+  /* ---------------- Firebase backend ---------------- */
+  async function firebaseBackend(config) {
+    const [{ initializeApp }, A, F] = await Promise.all([
+      import(FB + "firebase-app.js"),
+      import(FB + "firebase-auth.js"),
+      import(FB + "firebase-firestore.js"),
+    ]);
+    const app = initializeApp(config);
+    const auth = A.getAuth(app);
+    auth.languageCode = "he";
+    let db;
+    try {
+      // Offline cache: the game keeps working if the Wi-Fi drops mid-hand and syncs when it's back.
+      db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
+    } catch (e) {
+      db = F.getFirestore(app);
+    }
+    const provider = new A.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    A.getRedirectResult(auth).catch(() => {});
+
+    const games = F.collection(db, "games");
+    const toUser = (u) => u && { uid: u.uid, name: u.displayName || u.email, email: u.email, photo: u.photoURL };
+
+    return {
+      mode: "firebase",
+      onAuth: (cb) => A.onAuthStateChanged(auth, (u) => cb(toUser(u))),
+      async signIn() {
+        // Popup first: redirect sign-in breaks in Safari when the app is hosted on a domain other than
+        // <project>.firebaseapp.com (e.g. GitHub Pages), so redirect is only the fallback.
+        try {
+          await A.signInWithPopup(auth, provider);
+        } catch (e) {
+          if (["auth/popup-blocked", "auth/operation-not-supported-in-this-environment", "auth/cancelled-popup-request"].includes(e.code))
+            return A.signInWithRedirect(auth, provider);
+          throw e;
+        }
+      },
+      signOut: () => A.signOut(auth),
+      async createGame(data) {
+        const ref = await F.addDoc(games, data);
+        return ref.id;
+      },
+      watchGame(id, cb, onErr) {
+        return F.onSnapshot(
+          F.doc(db, "games", id),
+          (s) => cb(s.exists() ? { id: s.id, ...s.data(), _pending: s.metadata.hasPendingWrites } : null),
+          (e) => onErr && onErr(e)
+        );
+      },
+      updateGame: (id, patch) => F.updateDoc(F.doc(db, "games", id), patch),
+      deleteGame: (id) => F.deleteDoc(F.doc(db, "games", id)),
+      joinAsViewer: (id, userId) => F.updateDoc(F.doc(db, "games", id), { viewers: F.arrayUnion(userId) }),
+      async listMyGames(userId) {
+        const [h, v] = await Promise.all([
+          F.getDocs(F.query(games, F.where("hostUid", "==", userId))),
+          F.getDocs(F.query(games, F.where("viewers", "array-contains", userId))),
+        ]);
+        const map = new Map();
+        [...h.docs, ...v.docs].forEach((d) => map.set(d.id, { id: d.id, ...d.data() }));
+        return [...map.values()].sort((a, b) => b.createdAt - a.createdAt);
+      },
+    };
+  }
+
+  /* ---------------- Demo backend (this device only) ---------------- */
+  function demoBackend() {
+    const KEY = "pk-demo-v1";
+    const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || { user: null, games: {} }; } catch (e) { return mem; } };
+    let mem = { user: null, games: {} };
+    const write = (s) => { mem = s; try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} emit(); };
+    const authCbs = new Set();
+    const gameCbs = new Map(); // id -> Set(cb)
+    function emit() {
+      const s = read();
+      authCbs.forEach((cb) => cb(s.user));
+      gameCbs.forEach((set, id) => set.forEach((cb) => cb(s.games[id] ? { id, ...s.games[id] } : null)));
+    }
+    window.addEventListener("storage", (e) => e.key === KEY && emit()); // other tabs = "other phones"
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+    function applyPatch(doc, patch) {
+      Object.entries(patch).forEach(([k, v]) => {
+        if (v && v.__arrayUnion) doc[k] = [...new Set([...(doc[k] || []), ...v.__arrayUnion])];
+        else doc[k] = v;
+      });
+    }
+    return {
+      mode: "demo",
+      onAuth(cb) { authCbs.add(cb); setTimeout(() => cb(read().user)); return () => authCbs.delete(cb); },
+      async signIn(name) {
+        const s = read();
+        s.lastUid = s.lastUid || "demo-" + uid();
+        s.user = { uid: s.lastUid, name: name || "מארח", email: null, photo: null };
+        write(s);
+      },
+      async signOut() { const s = read(); s.user = null; write(s); },
+      async createGame(data) { const s = read(); const id = uid(); s.games[id] = clone(data); write(s); return id; },
+      watchGame(id, cb) {
+        if (!gameCbs.has(id)) gameCbs.set(id, new Set());
+        gameCbs.get(id).add(cb);
+        setTimeout(() => { const g = read().games[id]; cb(g ? { id, ...g } : null); });
+        return () => gameCbs.get(id).delete(cb);
+      },
+      async updateGame(id, patch) { const s = read(); if (!s.games[id]) return; applyPatch(s.games[id], clone(patch)); write(s); },
+      async deleteGame(id) { const s = read(); delete s.games[id]; write(s); },
+      async joinAsViewer(id, userId) { return this.updateGame(id, { viewers: { __arrayUnion: [userId] } }); },
+      async listMyGames(userId) {
+        const s = read();
+        return Object.entries(s.games)
+          .filter(([, g]) => g.hostUid === userId || (g.viewers || []).includes(userId) || g.sample)
+          .map(([id, g]) => ({ id, ...g }))
+          .sort((a, b) => b.createdAt - a.createdAt);
+      },
+      // Seed example data so the app opens in a realistic state. Marked `sample: true`.
+      seedIfEmpty(user) {
+        const s = read();
+        if (Object.keys(s.games).length || s.seeded) return;
+        const now = Date.now(), H = 3600e3;
+        const mk = (name, buyIns, cashOut, method, phone) => ({ id: uid(), name, buyIns, cashOut, method, phone: phone || "", joinedAt: now - 3 * H });
+        const p1 = [mk("יוסי", 2, null, "bit"), mk("דני", 3, null, "paybox"), mk("רון", 1, null, "bit"), mk("מיכל", 2, null, "cash"), mk("אבי", 4, null, "bit"), mk("שירן", 1, null, "paybox")];
+        const ev = [];
+        p1.forEach((p, i) => { for (let k = 0; k < p.buyIns; k++) ev.push({ t: now - 2.6 * H + i * 60e3 + k * 38 * 60e3, type: k ? "rebuy" : "buyin", pid: p.id }); });
+        ev.sort((a, b) => a.t - b.t);
+        s.games[uid()] = {
+          sample: true, title: "ערב שלישי אצל יוסי", hostUid: user.uid, hostName: user.name, createdAt: now - 2.6 * H,
+          status: "live", buyInAmount: 20, chipsPerBuyIn: 200, players: p1, events: ev, viewers: [],
+          expenses: [{ id: uid(), desc: "פיצות ובירות", amount: 180, paidBy: p1[0].id }], settlement: null,
+        };
+        const p2 = [mk("יוסי", 2, 610, "bit"), mk("דני", 1, 0, "paybox"), mk("רון", 3, 790, "bit"), mk("מיכל", 2, 200, "cash"), mk("אבי", 2, 400, "bit")];
+        const g2 = {
+          sample: true, title: "שישי בערב", hostUid: user.uid, hostName: user.name, createdAt: now - 6 * 24 * H, endedAt: now - 6 * 24 * H + 4 * H,
+          status: "settled", buyInAmount: 20, chipsPerBuyIn: 200, players: p2, events: [], viewers: [],
+          expenses: [{ id: uid(), desc: "חטיפים", amount: 60, paidBy: p2[2].id }],
+        };
+        g2.settlement = { ...PK.settle.computeSettlement(g2), paid: {} };
+        s.games[uid()] = g2;
+        s.seeded = true;
+        write(s);
+      },
+      arrayUnion: (...v) => ({ __arrayUnion: v }),
+    };
+  }
+
+  PK.newId = uid;
+  PK.initStore = async function () {
+    const cfg = window.PK_FIREBASE_CONFIG;
+    if (cfg && cfg.apiKey && cfg.projectId) {
+      // No silent fallback to demo here: data entered offline-in-demo would never reach the cloud.
+      return await firebaseBackend(cfg);
+    }
+    return demoBackend();
+  };
+})();
+
+</script>
+<script>
+/* ChipTable — social cash-game manager.
+   Screens: login · home (games list) · game (live → counting → settled) · stats (leaderboard).
+   Only the host (banker) writes; everyone else who opens the share link watches in real time. */
+(function () {
+  const PK = window.PK;
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const ils = (ag, signed) => {
+    const v = ag / 100;
+    const s = Number.isInteger(v) ? v.toLocaleString("he-IL") : v.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // LTR isolate so "-37 ₪" doesn't get flipped by the Hebrew (RTL) text around it
+    return "\u2066" + (signed && ag > 0 ? "+" : "") + s + " ₪\u2069";
+  };
+  const chipsFmt = (n) => Number(n || 0).toLocaleString("he-IL");
+  const hhmm = (t) => new Date(t).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+  const dateFmt = (t) => new Date(t).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "numeric" });
+  const elapsed = (from, to = Date.now()) => {
+    const m = Math.max(0, Math.floor((to - from) / 60000));
+    return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0");
+  };
+  const METHODS = { bit: "Bit", paybox: "PayBox", cash: "מזומן" };
+
+  /* ---------- icons ---------- */
+  const I = {
+    logo: '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="currentColor"/><circle cx="16" cy="16" r="14" fill="none" stroke="#f1e9d8" stroke-width="3" stroke-dasharray="5 6.0"/><path d="M16 8c-3 3.4-6.5 5.6-6.5 9a3.3 3.3 0 0 0 5.6 2.4L14 24h4l-1.1-4.6A3.3 3.3 0 0 0 22.5 17c0-3.4-3.5-5.6-6.5-9z" fill="#0d2622"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h-5a5 5 0 0 0 0 10h6"/><path d="M12 4l3 3-3 3" /></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></svg>',
+    vol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
+    mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>',
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    chev: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
+    google: '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
+  };
+
+  /* ---------- state ---------- */
+  const S = {
+    store: null, user: null, route: { name: "home" }, game: null, unsub: null,
+    games: [], gamesLoaded: false, lbSort: "net", adjust: false, drafts: {}, flashPid: null, pendingRender: false,
+  };
+
+  /* ---------- toast & sheet ---------- */
+  let toastT;
+  function toast(msg) {
+    const el = $("#toast");
+    el.textContent = msg; el.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), 2200);
+  }
+  function openSheet(html, onMount) {
+    const root = $("#sheet");
+    root.innerHTML = `<div class="scrim" data-act="closeSheet"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
+    root.hidden = false;
+    const first = root.querySelector("input:not([type=radio]):not([type=checkbox])");
+    if (first) setTimeout(() => first.focus(), 60);
+    onMount && onMount(root);
+  }
+  function closeSheet() { const r = $("#sheet"); r.hidden = true; r.innerHTML = ""; }
+  async function copy(text, msg = "הועתק") {
+    try { await navigator.clipboard.writeText(text); toast(msg); }
+    catch (e) {
+      const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); toast(msg); } catch (_) { toast("לא הצלחתי להעתיק"); }
+      ta.remove();
+    }
+  }
+  async function share(text, url) {
+    if (navigator.share) { try { await navigator.share({ text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
+    copy(url ? text + "\n" + url : text, "הקישור הועתק");
+  }
+
+  /* ---------- routing ---------- */
+  function parseHash() {
+    const h = (location.hash || "").replace(/^#\/?/, "");
+    const qs = new URLSearchParams(location.search);
+    if (qs.get("g")) return { name: "game", id: qs.get("g") };
+    if (h.startsWith("game/")) return { name: "game", id: h.slice(5) };
+    if (h === "stats") return { name: "stats" };
+    return { name: "home" };
+  }
+  function go(name, id) {
+    const hash = name === "game" ? "#game/" + id : name === "stats" ? "#stats" : "#";
+    if (location.search) history.replaceState(null, "", location.pathname + hash);
+    else if (location.hash !== hash) { try { location.hash = hash; } catch (e) {} }
+    setRoute({ name, id });
+  }
+  function setRoute(r) {
+    if (S.unsub) { S.unsub(); S.unsub = null; }
+    S.route = r; S.game = null; S.drafts = {}; S.adjust = false;
+    window.scrollTo(0, 0);
+    if (!S.user) return render(true);
+    if (r.name === "game") {
+      S.gameMissing = false;
+      S.unsub = S.store.watchGame(r.id, onGame, (e) => { console.error(e); S.gameMissing = true; render(true); });
+    } else loadGames();
+    render(true);
+  }
+  function onGame(g) {
+    const first = !S.game;
+    S.game = g; S.gameMissing = !g;
+    if (g && first && S.user && g.hostUid !== S.user.uid && !(g.viewers || []).includes(S.user.uid)) {
+      S.store.joinAsViewer(g.id, S.user.uid).catch(() => {});
+    }
+    render();
+  }
+  async function loadGames() {
+    try { S.games = await S.store.listMyGames(S.user.uid); } catch (e) { console.error(e); toast("שגיאה בטעינת המשחקים"); }
+    S.gamesLoaded = true;
+    render(true);
+  }
+
+  /* ---------- writes (host only) ---------- */
+  const isHost = () => S.game && S.user && S.game.hostUid === S.user.uid;
+  function upd(patch) {
+    if (!isHost()) return;
+    Object.assign(S.game, JSON.parse(JSON.stringify(patch))); // optimistic
+    render(true);
+    S.store.updateGame(S.game.id, patch).catch((e) => { console.error(e); PK.sound.play("error"); toast("השמירה נכשלה — בדוק חיבור"); });
+  }
+  const players = () => S.game.players.map((p) => ({ ...p }));
+  const ev = (type, pid, extra) => [...(S.game.events || []), { t: Date.now(), type, pid, ...extra }].slice(-300);
+  const pname = (id) => (S.game.players.find((p) => p.id === id) || {}).name || "?";
+
+  const actions = {
+    closeSheet(e) { if (e.target.classList.contains("scrim")) closeSheet(); },
+    x() { closeSheet(); },
+    home() { go("home"); },
+    stats() { go("stats"); },
+    open(e, d) { go("game", d.id); },
+    mute(e, d, btn) { const m = PK.sound.toggle(); btn.innerHTML = m ? I.mute : I.vol; btn.setAttribute("aria-label", m ? "הפעל צלילים" : "השתק"); },
+    async signIn() {
+      PK.sound.play("tap");
+      try {
+        if (S.store.mode === "demo") { const n = ($("#demoName") || {}).value; await S.store.signIn((n || "").trim() || "מארח"); }
+        else await S.store.signIn();
+      } catch (e) { console.error(e); toast("ההתחברות נכשלה: " + (e.code || e.message)); }
+    },
+    async signOut() { closeSheet(); await S.store.signOut(); },
+    account() {
+      openSheet(`
+        <div class="row"><div class="grow"><div class="h2">${esc(S.user.name)}</div><div class="muted">${esc(S.user.email || "מצב הדגמה")}</div></div></div>
+        ${S.store.mode === "demo" ? `<div class="notice">מצב הדגמה: הנתונים נשמרים רק במכשיר הזה. אחרי חיבור Firebase תהיה כניסה עם Google ושמירה בענן.</div>` : ""}
+        <button class="btn block" data-act="signOut">התנתקות</button>
+        <button class="btn ghost block" data-act="x">סגירה</button>`);
+    },
+
+    /* --- new game --- */
+    newGame() {
+      PK.sound.play("tap");
+      const known = knownPlayers();
+      const sel = new Set();
+      const draw = (root) => {
+        $("#np-tags", root).innerHTML = [...new Set([...sel, ...known.map((k) => k.name)])]
+          .map((n) => `<button type="button" class="tag ${sel.has(n) ? "on" : ""}" data-n="${esc(n)}">${sel.has(n) ? "✓ " : ""}${esc(n)}</button>`).join("")
+          || `<span class="muted">הוסף שמות למטה</span>`;
+        $("#np-count", root).textContent = sel.size ? `${sel.size} שחקנים · קופה פותחת ${sel.size * 20} ₪` : "בחר לפחות 2 שחקנים";
+        $("#np-start", root).disabled = sel.size < 2;
+      };
+      openSheet(`
+        <div class="h2">משחק חדש</div>
+        <div class="field"><label class="label" for="np-title">שם הערב</label>
+          <input class="input" id="np-title" value="${esc("פוקר · " + dateFmt(Date.now()))}" maxlength="40"></div>
+        <div class="field"><span class="label">מי משחק?</span><div class="tags" id="np-tags"></div></div>
+        <form class="row" id="np-add"><input class="input grow" id="np-name" placeholder="שם שחקן חדש" maxlength="20" autocomplete="off"><button class="btn" aria-label="הוסף">${I.plus}</button></form>
+        <div class="notice"><span class="num">20 ₪ = 200 צ׳יפים</span> לכל כניסה וריביי. כל שחקן מתחיל עם כניסה אחת.</div>
+        <div class="muted" id="np-count"></div>
+        <button class="btn primary block" id="np-start">פתיחת שולחן</button>`,
+        (root) => {
+          draw(root);
+          $("#np-tags", root).addEventListener("click", (e) => {
+            const t = e.target.closest(".tag"); if (!t) return;
+            const n = t.dataset.n; sel.has(n) ? sel.delete(n) : sel.add(n); PK.sound.play("chip"); draw(root);
+          });
+          $("#np-add", root).addEventListener("submit", (e) => {
+            e.preventDefault(); const i = $("#np-name", root); const n = i.value.trim();
+            if (n) { sel.add(n); i.value = ""; PK.sound.play("chip"); draw(root); } i.focus();
+          });
+          $("#np-start", root).addEventListener("click", async () => {
+            const now = Date.now();
+            const ps = [...sel].map((name) => {
+              const k = known.find((x) => x.name === name) || {};
+              return { id: PK.newId(), name, method: k.method || "bit", phone: k.phone || "", buyIns: 1, cashOut: null, joinedAt: now };
+            });
+            const data = {
+              title: $("#np-title", root).value.trim() || "פוקר", hostUid: S.user.uid, hostName: S.user.name,
+              createdAt: now, status: "live", buyInAmount: 20, chipsPerBuyIn: 200, players: ps,
+              events: ps.map((p) => ({ t: now, type: "buyin", pid: p.id })), expenses: [], viewers: [], settlement: null,
+            };
+            $("#np-start", root).disabled = true;
+            try { const id = await S.store.createGame(data); closeSheet(); PK.sound.play("rebuy"); go("game", id); }
+            catch (e) { console.error(e); toast("לא הצלחתי ליצור משחק"); $("#np-start", root).disabled = false; }
+          });
+        });
+    },
+
+    /* --- live game --- */
+    rebuy(e, d) {
+      const ps = players(); const p = ps.find((x) => x.id === d.pid); if (!p) return;
+      p.buyIns += 1; S.flashPid = p.id;
+      PK.sound.play("rebuy");
+      upd({ players: ps, events: ev("rebuy", p.id) });
+      toast(`${p.name} · ריביי #${p.buyIns - 1} · +200 צ׳יפים`);
+    },
+    undo(e, d) {
+      const ps = players(); const p = ps.find((x) => x.id === d.pid); if (!p || p.buyIns <= 1) return;
+      p.buyIns -= 1; PK.sound.play("undo");
+      upd({ players: ps, events: ev("undo", p.id) });
+    },
+    addPlayer() {
+      const known = knownPlayers().filter((k) => !S.game.players.some((p) => p.name === k.name));
+      openSheet(`
+        <div class="h2">שחקן מצטרף</div>
+        ${known.length ? `<div class="tags">${known.slice(0, 12).map((k) => `<button type="button" class="tag" data-act="addKnown" data-n="${esc(k.name)}">${esc(k.name)}</button>`).join("")}</div>` : ""}
+        <form class="stack" id="ap"><input class="input" id="ap-name" placeholder="שם" maxlength="20" autocomplete="off" required>
+        <button class="btn primary block">הוספה + כניסה של 20 ₪</button></form>`,
+        (root) => $("#ap", root).addEventListener("submit", (e) => { e.preventDefault(); const n = $("#ap-name", root).value.trim(); if (n) addPlayerNamed(n); }));
+    },
+    addKnown(e, d) { addPlayerNamed(d.n); },
+    editPlayer(e, d) {
+      const p = S.game.players.find((x) => x.id === d.pid); if (!p) return;
+      const hostOnly = isHost();
+      openSheet(`
+        <div class="h2">${esc(p.name)}</div>
+        <div class="muted num">${p.buyIns} כניסות · ${ils(p.buyIns * 2000)} · ${chipsFmt(p.buyIns * 200)} צ׳יפים</div>
+        <form class="stack" id="ep">
+          <div class="field"><label class="label" for="ep-name">שם</label><input class="input" id="ep-name" value="${esc(p.name)}" maxlength="20" ${hostOnly ? "" : "disabled"}></div>
+          <div class="field"><span class="label">מקבל כסף דרך</span><div class="seg">${Object.entries(METHODS).map(([k, v]) => `<label><input type="radio" name="ep-m" value="${k}" ${p.method === k ? "checked" : ""} ${hostOnly ? "" : "disabled"}><span>${v}</span></label>`).join("")}</div></div>
+          <div class="field"><label class="label" for="ep-phone">טלפון לביט / פייבוקס</label><input class="input num" id="ep-phone" inputmode="tel" value="${esc(p.phone || "")}" placeholder="05X-XXXXXXX" ${hostOnly ? "" : "disabled"}></div>
+          ${hostOnly ? `<button class="btn primary block">שמירה</button>` : ""}
+        </form>
+        ${hostOnly ? `<button class="btn ghost danger block" id="ep-del">הסרת שחקן מהמשחק</button>` : ""}`,
+        (root) => {
+          if (!hostOnly) return;
+          $("#ep", root).addEventListener("submit", (e) => {
+            e.preventDefault();
+            const ps = players(); const q = ps.find((x) => x.id === p.id);
+            q.name = $("#ep-name", root).value.trim() || q.name;
+            q.method = (root.querySelector("input[name=ep-m]:checked") || {}).value || q.method;
+            q.phone = $("#ep-phone", root).value.trim();
+            upd({ players: ps }); closeSheet(); toast("נשמר");
+          });
+          const del = $("#ep-del", root);
+          del.addEventListener("click", () => {
+            if (del.dataset.armed) {
+              upd({ players: S.game.players.filter((x) => x.id !== p.id), expenses: (S.game.expenses || []).map((x) => (x.paidBy === p.id ? { ...x, paidBy: null } : x)) });
+              closeSheet(); toast(`${p.name} הוסר`);
+            } else { del.dataset.armed = "1"; del.textContent = `לחץ שוב כדי להסיר את ${p.name} (${p.buyIns} כניסות יימחקו)`; }
+          });
+        });
+    },
+    addExpense(e, d) {
+      const cur = d && d.id ? (S.game.expenses || []).find((x) => x.id === d.id) : null;
+      const defPayer = cur ? cur.paidBy : S.lastPayer || (S.game.players[0] || {}).id;
+      openSheet(`
+        <div class="h2">${cur ? "עריכת קנייה" : "קניות לטובת החבר׳ה"}</div>
+        <div class="muted">הסכום מתחלק שווה בין כל השחקנים, ומי שקנה מקבל אותו בחזרה בהתחשבנות.</div>
+        <form class="stack" id="ax">
+          <div class="field"><label class="label" for="ax-p">מי קנה?</label><select class="input" id="ax-p">${S.game.players.map((p) => `<option value="${p.id}" ${p.id === defPayer ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
+          <div class="field"><label class="label" for="ax-a">כמה עלה? (₪)</label><input class="input num" id="ax-a" inputmode="decimal" placeholder="0" value="${cur ? cur.amount : ""}" required></div>
+          <div class="field"><label class="label" for="ax-d">מה נקנה?</label><input class="input" id="ax-d" placeholder="פיצות, בירות, חטיפים" maxlength="30" value="${esc(cur ? cur.desc : "")}"></div>
+          <div class="muted num" id="ax-share"></div>
+          <button class="btn primary block">${cur ? "שמירה" : "הוספה"}</button>
+        </form>
+        ${cur ? `<button class="btn ghost danger block" data-act="delExpense" data-id="${cur.id}">מחיקת הקנייה</button>` : ""}`,
+        (root) => {
+          const amt = $("#ax-a", root), n = S.game.players.length;
+          const showShare = () => {
+            const v = parseFloat(amt.value.replace(",", "."));
+            $("#ax-share", root).textContent = v > 0 && n ? `${Math.round((v / n) * 100) / 100} ₪ לכל אחד מ-${n} השחקנים` : "";
+          };
+          amt.addEventListener("input", showShare); showShare();
+          setTimeout(() => amt.focus(), 80);
+          $("#ax", root).addEventListener("submit", (e) => {
+            e.preventDefault();
+            const amount = parseFloat(amt.value.replace(",", "."));
+            if (!(amount > 0)) { toast("הזן סכום"); return; }
+            const x = { id: cur ? cur.id : PK.newId(), desc: $("#ax-d", root).value.trim() || "קניות", amount: Math.round(amount * 100) / 100, paidBy: $("#ax-p", root).value };
+            S.lastPayer = x.paidBy;
+            if (cur) upd({ expenses: S.game.expenses.map((y) => (y.id === x.id ? x : y)) });
+            else upd({ expenses: [...(S.game.expenses || []), x], events: ev("expense", x.paidBy, { amount: x.amount, desc: x.desc }) });
+            closeSheet(); PK.sound.play("chip"); toast(cur ? "הקנייה עודכנה" : `${pname(x.paidBy)} · ${x.amount} ₪ נוספו`);
+          });
+        });
+    },
+    delExpense(e, d, btn) {
+      if (!btn.dataset.armed) { btn.dataset.armed = "1"; btn.textContent = "לחץ שוב למחיקה"; return; }
+      upd({ expenses: (S.game.expenses || []).filter((x) => x.id !== d.id) }); closeSheet(); toast("הקנייה נמחקה");
+    },
+    shareGame() {
+      const url = location.origin + location.pathname + "?g=" + S.game.id;
+      if (S.store.mode === "demo") { toast("שיתוף לצפייה עובד אחרי חיבור Firebase"); return; }
+      share(`🃏 ${S.game.title} — צפייה בזמן אמת בכניסות ובקופה:`, url);
+    },
+    startCount() { PK.sound.play("tap"); upd({ status: "counting" }); },
+    backToLive() { upd({ status: "live" }); },
+
+    /* --- counting --- */
+    fillZero(e, d) {
+      const ps = players(); const p = ps.find((x) => x.id === d.pid); p.cashOut = 0; S.drafts[p.id] = "0";
+      upd({ players: ps });
+    },
+    lbSort(e, d) { S.lbSort = d.k; PK.sound.play("tap"); render(true); },
+    toggleAdjust(e) { S.adjust = e.target.checked; render(true); },
+    finalize() {
+      commitDrafts();
+      const r = PK.settle.computeSettlement(S.game, { adjust: S.adjust });
+      if (r.missing.length) { PK.sound.play("error"); toast("חסרה ספירה: " + r.missing.map((p) => p.name).join(", ")); return; }
+      if (!r.balanced) { PK.sound.play("error"); toast("הצ׳יפים לא מסתדרים — תקן או סמן חלוקה יחסית"); return; }
+      PK.sound.play("win");
+      upd({ status: "settled", endedAt: Date.now(), settlement: { ...r, adjusted: S.adjust, paid: {} } });
+    },
+    reopen() { upd({ status: "counting", settlement: null }); },
+    paid(e, d) {
+      const s = { ...S.game.settlement, paid: { ...(S.game.settlement.paid || {}), [d.i]: e.target.checked } };
+      if (e.target.checked) PK.sound.play("chip");
+      upd({ settlement: s });
+    },
+    copyAmt(e, d) { copy(String(d.v), `${d.v} ₪ הועתק`); },
+    copyPhone(e, d) { copy(d.v, "המספר הועתק"); },
+    shareSettle() { share(settleText(S.game)); },
+    delGame(e, d, btn) {
+      if (!btn.dataset.armed) { btn.dataset.armed = "1"; btn.textContent = "לחץ שוב כדי למחוק את המשחק לצמיתות"; return; }
+      S.store.deleteGame(S.game.id).then(() => { toast("המשחק נמחק"); go("home"); });
+    },
+  };
+
+  function addPlayerNamed(name) {
+    if (S.game.players.some((p) => p.name === name)) { toast(`${name} כבר במשחק`); return; }
+    const k = knownPlayers().find((x) => x.name === name) || {};
+    const p = { id: PK.newId(), name, method: k.method || "bit", phone: k.phone || "", buyIns: 1, cashOut: null, joinedAt: Date.now() };
+    S.flashPid = p.id;
+    upd({ players: [...players(), p], events: ev("buyin", p.id) });
+    closeSheet(); PK.sound.play("rebuy");
+  }
+  function knownPlayers() {
+    const m = new Map();
+    S.games.forEach((g) => (g.players || []).forEach((p) => {
+      const k = m.get(p.name) || { name: p.name, n: 0 };
+      k.n++; if (!k.method) k.method = p.method; if (!k.phone && p.phone) k.phone = p.phone;
+      m.set(p.name, k);
+    }));
+    return [...m.values()].sort((a, b) => b.n - a.n);
+  }
+  function commitDrafts() {
+    const ids = Object.keys(S.drafts); if (!ids.length || !isHost()) return;
+    const ps = players(); let changed = false;
+    ps.forEach((p) => {
+      if (!(p.id in S.drafts)) return;
+      const raw = String(S.drafts[p.id]).trim();
+      const v = raw === "" ? null : Math.max(0, Math.round(Number(raw.replace(/[^\d.]/g, "")) || 0));
+      if (v !== p.cashOut) { p.cashOut = v; changed = true; }
+    });
+    if (changed) { Object.assign(S.game, { players: ps }); S.store.updateGame(S.game.id, { players: ps }).catch(() => toast("השמירה נכשלה")); }
+  }
+  function settleText(g) {
+    const s = g.settlement; const n = (id) => (g.players.find((p) => p.id === id) || {}).name || "?";
+    const lines = [`🃏 ${g.title} — התחשבנות`, ""];
+    s.rows.slice().sort((a, b) => b.net - a.net).forEach((r) => lines.push(`${r.name}: ${ils(r.net, true)}`));
+    lines.push("", "העברות:");
+    s.transfers.forEach((t) => {
+      const to = g.players.find((p) => p.id === t.to) || {};
+      lines.push(`• ${n(t.from)} ← ${n(t.to)}: ${ils(t.amount)} (${METHODS[t.method]}${to.phone && t.method !== "cash" ? " " + to.phone : ""})`);
+    });
+    if (s.expensesTotal) lines.push("", `כולל הוצאות אירוח: ${ils(s.expensesTotal)}`);
+    return lines.join("\n");
+  }
+
+  /* ---------- views ---------- */
+  function topbar(extra = "") {
+    const u = S.user;
+    const av = u.photo ? `<img class="avatar" src="${esc(u.photo)}" alt="" referrerpolicy="no-referrer">` : `<span class="avatar txt">${esc((u.name || "?").slice(0, 1))}</span>`;
+    return `<header class="topbar">
+      <button class="brand" data-act="home" aria-label="למסך הבית">${I.logo}<span>צ׳יפטייבל</span></button>
+      ${S.store.mode === "demo" ? `<span class="pill demo">הדגמה</span>` : ""}
+      <span class="spacer"></span>${extra}
+      <button class="iconbtn" data-act="mute" aria-label="${PK.sound.isMuted() ? "הפעל צלילים" : "השתק"}">${PK.sound.isMuted() ? I.mute : I.vol}</button>
+      <button class="iconbtn" data-act="account" aria-label="חשבון" style="padding:0;border:0;background:none">${av}</button>
+    </header>`;
+  }
+
+  function viewLogin() {
+    const demo = S.store.mode === "demo";
+    return `<div class="login">
+      <div class="felt-chips" aria-hidden="true"><span class="chip"></span><span class="chip blue"></span><span class="chip black"></span><span class="chip brass"></span></div>
+      <div class="stack"><h1 class="h1">צ׳יפטייבל</h1>
+      <p>ניהול ערבי פוקר בין חברים: כניסות, ריביי, הוצאות אירוח והתחשבנות אוטומטית בסוף הערב.</p></div>
+      ${demo ? `<div class="stack">
+          <div class="notice"><b>מצב הדגמה.</b> הנתונים נשמרים במכשיר הזה בלבד. לכניסה עם Google ושמירה בענן צריך לחבר Firebase.</div>
+          <div class="field"><label class="label" for="demoName">איך קוראים לך?</label><input class="input" id="demoName" placeholder="השם שלך" maxlength="20"></div>
+          <button class="btn primary block" data-act="signIn">כניסה</button></div>`
+        : `<button class="btn gbtn block" data-act="signIn">${I.google}<span>כניסה עם Google</span></button>`}
+      ${S.route.name === "game" ? `<div class="muted">קיבלת קישור למשחק — אחרי הכניסה תראה אותו בזמן אמת.</div>` : ""}
+    </div>`;
+  }
+
+  function viewHome() {
+    const live = S.games.filter((g) => g.status !== "settled");
+    const past = S.games.filter((g) => g.status === "settled");
+    const row = (g) => {
+      const pot = (g.players || []).reduce((a, p) => a + p.buyIns, 0) * (g.buyInAmount || 20);
+      const mine = g.hostUid === S.user.uid;
+      return `<button class="item" data-act="open" data-id="${g.id}">
+        <div class="grow"><div class="t">${esc(g.title)} ${g.sample ? `<span class="pill sample">דוגמה</span>` : ""}</div>
+        <div class="s num">${dateFmt(g.createdAt)} · ${(g.players || []).length} שחקנים · קופה ${pot.toLocaleString("he-IL")} ₪${mine ? "" : " · צפייה"}</div></div>
+        ${g.status !== "settled" ? `<span class="pill live">${g.status === "counting" ? "ספירה" : "חי"}</span>` : ""}<span class="chev">${I.chev}</span></button>`;
+    };
+    return `${topbar()}
+      <div class="ghead"><h1 class="h1">ערב טוב, ${esc((S.user.name || "").split(" ")[0])}</h1>
+      <div class="muted">20 ₪ לכניסה · 200 צ׳יפים · המארח מנהל את הקופה</div></div>
+      <div class="section"><button class="btn primary block" data-act="newGame">${I.plus}<span>משחק חדש</span></button></div>
+      ${live.length ? `<div class="section"><div class="label">משחקים פתוחים</div><div class="list">${live.map(row).join("")}</div></div>` : ""}
+      ${podium()}
+      <div class="section"><div class="row"><div class="label grow">היסטוריית משחקים</div></div>
+      ${past.length ? `<div class="list">${past.map(row).join("")}</div>` : `<div class="empty">${S.gamesLoaded ? "עוד לא נסגר אף משחק. המשחקים שתסגור יופיעו כאן עם ההתחשבנות." : "טוען…"}</div>`}</div>`;
+  }
+
+  function scoreboard(g) {
+    const buys = g.players.reduce((a, p) => a + p.buyIns, 0);
+    const exp = (g.expenses || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+    return `<div class="scoreboard">
+      <div><span class="k">קופה</span><span class="v brass">${(buys * g.buyInAmount).toLocaleString("he-IL")} ₪</span></div>
+      <div><span class="k">צ׳יפים בשולחן</span><span class="v">${chipsFmt(buys * g.chipsPerBuyIn)}</span></div>
+      <div><span class="k">${g.status === "settled" ? "משך" : "זמן משחק"}</span><span class="v" id="clock">${elapsed(g.createdAt, g.endedAt)}</span></div>
+    </div>${exp ? `<div class="muted num" style="margin-top:8px">הוצאות אירוח: ${exp.toLocaleString("he-IL")} ₪ · ${(Math.round((exp / g.players.length) * 100) / 100).toLocaleString("he-IL")} ₪ לשחקן</div>` : ""}`;
+  }
+
+  function viewGame() {
+    const g = S.game;
+    if (S.gameMissing) return `${topbar()}<div class="empty"><div class="h2">המשחק לא נמצא</div><p>ייתכן שהוא נמחק או שהקישור שגוי.</p><button class="btn" data-act="home">חזרה</button></div>`;
+    if (!g) return `${topbar()}<div class="empty">טוען משחק…</div>`;
+    const host = isHost();
+    const status = g.status === "live" ? `<span class="pill live">משחק חי</span>` : g.status === "counting" ? `<span class="pill live">ספירת צ׳יפים</span>` : `<span class="pill">נסגר ${dateFmt(g.endedAt || g.createdAt)}</span>`;
+    const head = `${topbar(`<button class="iconbtn" data-act="shareGame" aria-label="שיתוף">${I.share}</button>`)}
+      <div class="ghead"><div class="row wrap">${status}${host ? "" : `<span class="pill">צופה · הבנקר: ${esc(g.hostName)}</span>`}${g.sample ? `<span class="pill sample">דוגמה</span>` : ""}${g._pending ? `<span class="pill">מסנכרן…</span>` : ""}</div>
+      <h1 class="h1">${esc(g.title)}</h1></div>${scoreboard(g)}`;
+    if (g.status === "settled" && g.settlement) return head + viewSettled(g, host);
+    if (g.status === "counting") return head + viewCounting(g, host);
+    return head + viewLive(g, host);
+  }
+
+  function chipStack(n, pop) {
+    const shown = Math.min(n, 8); const cls = ["", "blue", "black", "brass"];
+    return `<span class="chipstack" aria-hidden="true">${Array.from({ length: shown }, (_, i) => `<span class="chip ${cls[i % 4]} ${pop && i === shown - 1 ? "pop" : ""}"></span>`).join("")}</span>`;
+  }
+
+  function viewLive(g, host) {
+    const last = {};
+    (g.events || []).forEach((e) => { if (e.type === "rebuy" || e.type === "buyin") last[e.pid] = e.t; });
+    const sorted = g.players.slice();
+    const rows = sorted.map((p) => {
+      const pop = S.flashPid === p.id;
+      return `<div class="player ${pop ? "flash" : ""}">
+        <button class="name" data-act="editPlayer" data-pid="${p.id}" style="background:none;border:0;padding:0;text-align:start;color:inherit"><span>${esc(p.name)}</span></button>
+        <div class="meta">${chipStack(p.buyIns, pop)}<span class="num"><span class="badge-n">${p.buyIns}</span> כניסות · ${ils(p.buyIns * g.buyInAmount * 100)}</span>${last[p.id] && p.buyIns > 1 ? `<span class="num">אחרון ${hhmm(last[p.id])}</span>` : ""}</div>
+        ${host ? `<div class="actions">
+          ${p.buyIns > 1 ? `<button class="mini" data-act="undo" data-pid="${p.id}" aria-label="בטל ריביי אחרון של ${esc(p.name)}">${I.undo}</button>` : ""}
+          <button class="rebuy" data-act="rebuy" data-pid="${p.id}" aria-label="ריביי ל${esc(p.name)}">ריביי<small class="num">+20 ₪</small></button></div>` : ""}
+      </div>`;
+    }).join("");
+    S.flashPid = null;
+    const feed = (g.events || []).slice(-12).reverse().map((e) => {
+      const n = `<b>${esc(pname(e.pid))}</b>`;
+      const txt = e.type === "rebuy" ? `${n} ריביי · +200 צ׳יפים` : e.type === "buyin" ? `${n} נכנס/ה למשחק` : e.type === "undo" ? `${n} ביטול ריביי` : e.type === "expense" ? `${n} שילם/ה ${esc(e.desc)} · ${e.amount} ₪` : "";
+      return txt ? `<div class="e"><time>${hhmm(e.t)}</time><span>${txt}</span></div>` : "";
+    }).join("");
+    return `
+      <div class="section"><div class="row"><div class="label grow">שחקנים (${g.players.length})</div>${host ? `<button class="btn sm" data-act="addPlayer">${I.plus}<span>שחקן</span></button>` : ""}</div>
+      <div class="players">${rows}</div></div>
+      ${expensesSection(g, host)}
+      ${feed ? `<div class="section"><div class="label">פעילות</div><div class="feed">${feed}</div></div>` : ""}
+      ${host ? `<div class="bottombar"><div class="inner"><button class="btn primary" data-act="startCount">סיום ערב · ספירת צ׳יפים</button></div></div>` : ""}`;
+  }
+
+  // Purchases for the group: each one has its own amount and buyer; the total is split equally.
+  function expensesSection(g, host) {
+    const exps = g.expenses || [];
+    const total = exps.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const n = g.players.length || 1;
+    const byPayer = new Map();
+    exps.forEach((x) => byPayer.set(x.paidBy, (byPayer.get(x.paidBy) || 0) + Number(x.amount || 0)));
+    const ag = (v) => Math.round(v * 100);
+    const summary = [...byPayer.entries()].map(([pid, paid]) =>
+      `<div class="item"><div class="grow"><div class="t">${esc(pname(pid))}</div><div class="s num">קנה ב-${ils(ag(paid))} · חלקו ${ils(ag(total / n))}</div></div>
+       <div style="text-align:end"><div class="num win" style="font-weight:700">${ils(ag(paid - total / n), true)}</div><div class="s muted">יקוזז לטובתו</div></div></div>`).join("");
+    return `<div class="section"><div class="row"><div class="label grow">קניות לחבר׳ה${total ? ` · <span class="num">${ils(ag(total))}</span>` : ""}</div>${host ? `<button class="btn sm" data-act="addExpense">${I.plus}<span>קנייה</span></button>` : ""}</div>
+      ${exps.length ? `<div class="list">${exps.map((x) => host
+          ? `<button class="item" data-act="addExpense" data-id="${x.id}"><div class="grow"><div class="t">${esc(x.desc)}</div><div class="s">קנה: ${esc(pname(x.paidBy))}</div></div><span class="num">${ils(ag(x.amount))}</span><span class="chev">${I.edit.replace("<svg", '<svg width="16" height="16"')}</span></button>`
+          : `<div class="item"><div class="grow"><div class="t">${esc(x.desc)}</div><div class="s">קנה: ${esc(pname(x.paidBy))}</div></div><span class="num">${ils(ag(x.amount))}</span></div>`).join("")}</div>
+        ${summary ? `<div class="label" style="margin-top:4px">קיזוז לקונים · ${ils(ag(total / n))} לכל שחקן</div><div class="list">${summary}</div>` : ""}`
+        : `<div class="muted">מישהו הביא פיצות, שתייה או חטיפים? הוסף כל קנייה עם הסכום שלה, והיא תקוזז לטובת מי שקנה.</div>`}</div>`;
+  }
+
+  function countSummary(g) {
+    const draftG = { ...g, players: g.players.map((p) => (p.id in S.drafts ? { ...p, cashOut: S.drafts[p.id] === "" ? null : Number(String(S.drafts[p.id]).replace(/[^\d.]/g, "")) || 0 } : p)) };
+    const r = PK.settle.computeSettlement(draftG, { adjust: S.adjust });
+    const pct = r.chipsIssued ? Math.min(100, (r.chipsCounted / r.chipsIssued) * 100) : 0;
+    const cls = r.diffChips === 0 && !r.missing.length ? "ok" : r.diffChips > 0 ? "over" : "";
+    let msg;
+    if (r.missing.length) msg = `<div class="notice">נשארו לספור: ${r.missing.map((p) => esc(p.name)).join(", ")}</div>`;
+    else if (r.diffChips === 0) msg = `<div class="notice good">הספירה מדויקת. אפשר לסגור.</div>`;
+    else msg = `<div class="notice warn">${r.diffChips > 0 ? "יש" : "חסרים"} <b class="num">${chipsFmt(Math.abs(r.diffChips))}</b> צ׳יפים ${r.diffChips > 0 ? "מעבר למה שחולק" : "לעומת מה שחולק"} (${ils(Math.abs(r.diffChips) * 10)}). כדאי לספור שוב, או לחלק את ההפרש באופן יחסי.</div>`;
+    return `<div class="stack">
+      <div class="row"><span class="label grow">נספרו</span><span class="num"><b>${chipsFmt(r.chipsCounted)}</b> / ${chipsFmt(r.chipsIssued)}</span></div>
+      <div class="meter ${cls}"><i style="width:${pct}%"></i></div>${msg}</div>`;
+  }
+
+  function viewCounting(g, host) {
+    if (!host) {
+      return `<div class="section">${countSummary(g)}<div class="empty">הבנקר סופר צ׳יפים. ההתחשבנות תופיע כאן ברגע שהוא יסגור.</div></div>`;
+    }
+    const r = PK.settle.computeSettlement(g);
+    return `
+      <div class="section"><div class="label">כמה צ׳יפים יש לכל אחד?</div>
+      <div class="list">${g.players.map((p) => {
+        const v = p.id in S.drafts ? S.drafts[p.id] : p.cashOut ?? "";
+        return `<div class="countrow"><div style="min-width:0"><div class="t" style="font-weight:800">${esc(p.name)}</div>
+          <div class="s muted num" style="font-size:13px">השקיע ${chipsFmt(p.buyIns * g.chipsPerBuyIn)} · <button class="btn sm ghost" style="min-height:26px;padding:0 6px" data-act="fillZero" data-pid="${p.id}">הפסיד הכל</button></div></div>
+          <input class="input" id="c-${p.id}" data-count="${p.id}" inputmode="numeric" placeholder="צ׳יפים" value="${esc(v)}" aria-label="צ׳יפים של ${esc(p.name)}"></div>`;
+      }).join("")}</div></div>
+      <div class="section" id="count-summary">${countSummary(g)}</div>
+      ${expensesSection(g, host)}
+      ${r.diffChips !== 0 || S.adjust ? `<label class="toggle"><input type="checkbox" id="adj" data-act="toggleAdjust" ${S.adjust ? "checked" : ""}><span>חלוקה יחסית של הפרש בספירה (ערך הצ׳יפ ישתנה מעט)</span></label>` : ""}
+      <div class="bottombar"><div class="inner"><button class="btn" data-act="backToLive">חזרה למשחק</button><button class="btn primary" data-act="finalize">חישוב התחשבנות</button></div></div>`;
+  }
+
+  function viewSettled(g, host) {
+    const s = g.settlement; const paid = s.paid || {};
+    const P = (id) => g.players.find((p) => p.id === id) || { name: "?" };
+    const rows = s.rows.slice().sort((a, b) => b.net - a.net);
+    const done = s.transfers.filter((_, i) => paid[i]).length;
+    return `
+      <div class="section"><div class="label">תוצאות</div><div class="card tablewrap" style="padding:8px 10px">
+        <table class="results"><thead><tr><th>שחקן</th><th>כניסות</th><th>צ׳יפים</th>${s.expensesTotal ? "<th>אירוח</th>" : ""}<th style="text-align:end">נטו</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.buyIns}</td><td>${chipsFmt(r.chips)}</td>${s.expensesTotal ? `<td>${ils(r.credit - r.share, true)}</td>` : ""}<td class="n ${r.net > 0 ? "win" : r.net < 0 ? "loss" : ""}">${ils(r.net, true)}</td></tr>`).join("")}</tbody></table>
+      </div>${s.adjusted ? `<div class="muted">הפרש בספירה (${chipsFmt(s.diffChips)} צ׳יפים) חולק באופן יחסי.</div>` : ""}</div>
+      <div class="section"><div class="row"><div class="label grow">העברות (${s.transfers.length})</div>${s.transfers.length ? `<span class="muted num">${done}/${s.transfers.length} שולמו</span>` : ""}</div>
+      ${s.transfers.length ? `<div class="list">${s.transfers.map((t, i) => {
+        const to = P(t.to);
+        return `<div class="transfer ${paid[i] ? "paid" : ""}">
+          <div class="who"><span>${esc(P(t.from).name)}</span><span class="arrow">←</span><span>${esc(to.name)}</span></div>
+          <div class="amt">${ils(t.amount)}</div>
+          <div class="how"><span class="method ${t.method}">${METHODS[t.method]}</span>
+            ${t.method !== "cash" && to.phone ? `<button class="btn sm ghost num" data-act="copyPhone" data-v="${esc(to.phone)}">${I.copy}<span>${esc(to.phone)}</span></button>` : ""}
+            ${t.method !== "cash" ? `<button class="btn sm ghost" data-act="copyAmt" data-v="${t.amount / 100}">${I.copy}<span>סכום</span></button>` : ""}
+            <span class="grow"></span>
+            ${host ? `<label class="check"><input type="checkbox" data-act="paid" data-i="${i}" ${paid[i] ? "checked" : ""}>שולם</label>` : paid[i] ? `<span class="win">שולם ✓</span>` : ""}
+          </div></div>`;
+      }).join("")}</div>` : `<div class="empty">כולם יצאו מאוזנים. אין העברות.</div>`}
+      </div></div>
+      <div class="section"><button class="btn primary block" data-act="shareSettle">${I.share}<span>שליחת סיכום לקבוצה</span></button>
+      ${host ? `<div class="row"><button class="btn grow" data-act="reopen">פתיחה מחדש של הספירה</button></div><button class="btn ghost danger block" data-act="delGame">מחיקת המשחק</button>` : ""}</div>`;
+  }
+
+  // Aggregate all settled nights by player name.
+  function leaderboard() {
+    const settled = S.games.filter((g) => g.status === "settled" && g.settlement);
+    const m = new Map();
+    settled.slice().sort((a, b) => a.createdAt - b.createdAt).forEach((g) => g.settlement.rows.forEach((r) => {
+      const k = m.get(r.name) || { name: r.name, games: 0, net: 0, best: -Infinity, rebuys: 0, wins: 0, last: [] };
+      k.games++; k.net += r.net; k.best = Math.max(k.best, r.net);
+      k.rebuys += Math.max(0, r.buyIns - 1); if (r.net > 0) k.wins++;
+      k.last.push(r.net);
+      m.set(r.name, k);
+    }));
+    const list = [...m.values()].map((k) => ({ ...k, avg: Math.round(k.net / k.games), pct: Math.round((k.wins / k.games) * 100), last: k.last.slice(-5) }));
+    const key = { net: (x) => x.net, avg: (x) => x.avg, pct: (x) => x.pct * 1e6 + x.net }[S.lbSort] || ((x) => x.net);
+    list.sort((a, b) => key(b) - key(a));
+    return { settled, list };
+  }
+  const form = (arr) => `<span class="form" aria-label="5 ערבים אחרונים">${arr.map((v) => `<i class="${v > 0 ? "w" : v < 0 ? "l" : ""}"></i>`).join("")}</span>`;
+
+  function podium() {
+    const { settled, list } = leaderboard();
+    if (!list.length) return "";
+    const top = [...list].sort((a, b) => b.net - a.net).slice(0, 3);
+    return `<div class="section"><div class="row"><div class="label grow">טבלת מובילים · ${settled.length} ערבים</div><button class="btn sm ghost" data-act="stats">${I.chart}<span>טבלה מלאה</span></button></div>
+      <button class="podium" data-act="stats">${top.map((p, i) => `<div class="pod p${i + 1}"><span class="chip ${["brass", "", "blue"][i]}"></span><b>${esc(p.name)}</b><span class="num ${p.net > 0 ? "win" : p.net < 0 ? "loss" : ""}">${ils(p.net, true)}</span></div>`).join("")}</button></div>`;
+  }
+
+  function viewStats() {
+    const { settled, list } = leaderboard();
+    const totalPot = settled.reduce((a, g) => a + g.settlement.pot, 0);
+    const totalExp = settled.reduce((a, g) => a + (g.settlement.expensesTotal || 0), 0);
+    const val = (p) => S.lbSort === "avg" ? ils(p.avg, true) : S.lbSort === "pct" ? `${p.pct}%` : ils(p.net, true);
+    const sign = (p) => S.lbSort === "pct" ? "" : (S.lbSort === "avg" ? p.avg : p.net) > 0 ? "win" : (S.lbSort === "avg" ? p.avg : p.net) < 0 ? "loss" : "";
+    const tabs = [["net", "רווח כולל"], ["avg", "ממוצע לערב"], ["pct", "% ערבים ברווח"]];
+    const hist = settled.map((g) => {
+      const w = g.settlement.rows.slice().sort((a, b) => b.net - a.net)[0];
+      return `<button class="item" data-act="open" data-id="${g.id}"><div class="grow"><div class="t">${esc(g.title)}</div>
+        <div class="s num">${dateFmt(g.createdAt)} · ${g.players.length} שחקנים · קופה ${ils(g.settlement.pot)}${w && w.net > 0 ? ` · מנצח: ${esc(w.name)} ${ils(w.net, true)}` : ""}</div></div><span class="chev">${I.chev}</span></button>`;
+    }).join("");
+    return `${topbar()}
+      <div class="ghead"><button class="btn sm ghost" data-act="home" style="align-self:flex-start">${I.back}<span>חזרה</span></button>
+      <h1 class="h1">טבלת מובילים</h1><div class="muted num">${settled.length} ערבים · ${ils(totalPot)} עברו בקופות${totalExp ? ` · ${ils(totalExp)} קניות` : ""}</div></div>
+      ${list.length ? `<div class="section"><div class="seg seg-tabs">${tabs.map(([k, t]) => `<button class="${S.lbSort === k ? "on" : ""}" data-act="lbSort" data-k="${k}">${t}</button>`).join("")}</div>
+        <div class="list">${list.map((p, i) => `<div class="item">
+        <span class="lb-rank">${i + 1}</span>
+        <div class="grow"><div class="t">${esc(p.name)} ${form(p.last)}</div><div class="s num">${p.games} ערבים · ${p.wins} ברווח · ${p.rebuys} ריביי · שיא ${ils(p.best, true)}</div></div>
+        <span class="num ${sign(p)}" style="font-weight:700;font-size:18px">${val(p)}</span></div>`).join("")}</div></div>
+        <div class="section"><div class="label">היסטוריית משחקים</div><div class="list">${hist}</div></div>`
+        : `<div class="empty">אחרי שתסגור ערב ראשון, הטבלה תתמלא כאן.</div>`}`;
+  }
+
+  /* ---------- render ---------- */
+  function render(force) {
+    const a = document.activeElement;
+    if (!force && a && a.matches && a.matches("#app input[data-count]")) { S.pendingRender = true; return; }
+    S.pendingRender = false;
+    const root = $("#app");
+    let html;
+    if (!S.user) html = viewLogin();
+    else if (S.route.name === "game") html = viewGame();
+    else if (S.route.name === "stats") html = viewStats();
+    else html = viewHome();
+    const keepId = a && a.id && root.contains(a) ? a.id : null;
+    const sel = keepId && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null;
+    root.innerHTML = html;
+    if (keepId) {
+      const el = document.getElementById(keepId);
+      if (el) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} }
+    }
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-act]");
+    if (!el || el.tagName === "INPUT") return;
+    const fn = actions[el.dataset.act];
+    if (fn) fn(e, el.dataset, el);
+  });
+  document.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.dataset && el.dataset.act && el.tagName === "INPUT") { const fn = actions[el.dataset.act]; fn && fn(e, el.dataset, el); }
+    if (el.dataset && el.dataset.count) { S.drafts[el.dataset.count] = el.value; commitDrafts(); }
+  });
+  document.addEventListener("input", (e) => {
+    const el = e.target;
+    if (el.dataset && el.dataset.count) {
+      S.drafts[el.dataset.count] = el.value;
+      const box = $("#count-summary"); if (box && S.game) box.innerHTML = countSummary(S.game);
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#sheet").hidden) closeSheet();
+    if (e.key === "Enter" && e.target.dataset && e.target.dataset.count) {
+      const all = [...document.querySelectorAll("input[data-count]")]; const i = all.indexOf(e.target);
+      (all[i + 1] || e.target).focus(); if (!all[i + 1]) e.target.blur();
+    }
+  });
+  document.addEventListener("focusout", () => setTimeout(() => { if (S.pendingRender) render(); }, 0));
+  window.addEventListener("hashchange", () => { const r = parseHash(); if (r.name !== S.route.name || r.id !== S.route.id) setRoute(r); });
+  setInterval(() => { const c = $("#clock"); if (c && S.game && S.game.status !== "settled") c.textContent = elapsed(S.game.createdAt); }, 20000);
+
+  /* ---------- boot ---------- */
+  (async function boot() {
+    try { S.store = await PK.initStore(); }
+    catch (e) {
+      console.error(e);
+      $("#app").innerHTML = `<div class="login"><h1 class="h1">צ׳יפטייבל</h1>
+        <div class="notice warn">אין חיבור לשרת. בדוק שיש אינטרנט ונסה שוב.</div>
+        <button class="btn primary block" onclick="location.reload()">נסה שוב</button></div>`;
+      return;
+    }
+    S.route = parseHash();
+    let first = true;
+    S.store.onAuth((u) => {
+      const changed = first || (u && u.uid) !== (S.user && S.user.uid);
+      first = false;
+      S.user = u;
+      if (u && S.store.seedIfEmpty) S.store.seedIfEmpty(u);
+      if (changed) setRoute(S.route);
+    });
+    if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  })();
+})();
+
+</script>
+</body>
+</html>
