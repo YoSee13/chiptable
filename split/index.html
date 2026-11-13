@@ -217,7 +217,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
 <canvas id="fx"></canvas>
 
 <script>
-/* חצי־חצי — expense splitting between friends. All data stays on this device (localStorage); money is kept in agorot (integers). */
+/* חצי־חצי — expense splitting between friends. Local groups stay on this device (localStorage); shared groups sync through Firestore. Money is kept in agorot (integers). */
 (() => {
   "use strict";
   const $ = (s, r = document) => r.querySelector(s);
@@ -336,9 +336,12 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
   let R = { gid: null, tab: "tx" };
   const app = $("#app");
   function route() {
-    const m = location.hash.match(/^#g=(\w+)/);
-    R.gid = m && G(m[1]) ? m[1] : null;
-    render(); window.scrollTo(0, 0);
+    const j = location.hash.match(/^#join=(\w+)/);
+    if (j) { setJoin(j[1]); history.replaceState(null, "", location.pathname + location.search); tryJoin(); }
+    const m = location.hash.match(/^#g=(\w+)/), id = m && m[1];
+    R.gid = id && G(id) ? id : null;
+    want = id && !R.gid ? id : null; // a cloud group we are still waiting to receive
+    render(); window.scrollTo(0, 0); askWho();
   }
   addEventListener("hashchange", route);
 
@@ -369,7 +372,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
         : my < 0 ? `<span class="pill neg"><small>החוב שלך</small>${fmt(my, g.cur)}</span>` : `<span class="pill">מאוזן ✓</span>`;
       return `<button class="gcard" style="--i:${i}" data-a="go" data-id="${g.id}">
         <span class="tile">${g.emoji}</span>
-        <span class="mid"><b>${esc(g.name)}</b><span>${g.members.length} חברים · ${g.tx.filter((t) => t.type !== "pay").length} הוצאות</span></span>${pill}</button>`;
+        <span class="mid"><b>${esc(g.name)}</b><span>${g.cloud ? "☁️ " : ""}${g.members.length} חברים · ${g.tx.filter((t) => t.type !== "pay").length} הוצאות</span></span>${pill}</button>`;
     }).join("");
     const curs = Object.keys(by);
     const hero = curs.length ? curs.map((cur) => {
@@ -382,7 +385,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
       <div class="top"><h1><span class="logo"><i></i>חצי־חצי</span></h1>
         <button class="ib" data-a="settings" aria-label="הגדרות">⚙️</button></div>
       <div class="hero">${hero}</div>
-      ${S.groups.length ? `<h2>הקבוצות שלי</h2>${cards}` : `<div class="empty">
+      ${S.groups.length ? `<h2>הקבוצות שלי</h2>${cards}${U || S.cloudUser ? "" : `<button class="btn ghost wide" style="margin-top:6px;font-size:15px" data-a="settings">☁️ התחברות לסנכרון עם חברים</button>`}` : `<div class="empty">
         <svg viewBox="0 0 150 110" fill="none"><circle cx="75" cy="55" r="42" fill="var(--bg-2)"/><path d="M75 13a42 42 0 0 1 0 84z" fill="var(--accent)"/>
         <path d="M75 8v94" stroke="var(--ink)" stroke-width="3" stroke-dasharray="6 6" stroke-linecap="round"/><circle cx="58" cy="50" r="4" fill="var(--ink)"/><circle cx="92" cy="50" r="4" fill="var(--ink)"/>
         <path d="M60 66q15 12 30 0" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/></svg>
@@ -461,12 +464,13 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
   const host = $("#sheetHost");
   let D = null; // draft of the open form
   function sheet(html) {
+    sheetOpen = true;
     host.innerHTML = `<div class="back" data-a="close"></div><div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
     requestAnimationFrame(() => host.querySelectorAll(".back,.sheet").forEach((e) => e.classList.add("on")));
   }
   function closeSheet() {
     const els = host.querySelectorAll(".back,.sheet"); if (!els.length) return;
-    els.forEach((e) => e.classList.remove("on")); D = null;
+    els.forEach((e) => e.classList.remove("on")); D = null; sheetOpen = false;
     setTimeout(() => { if (!host.querySelector(".back.on")) host.innerHTML = ""; }, 320);
   }
   let toastT;
@@ -494,7 +498,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
 
   // ----- expense form -----
   function expSheet(g, tx) {
-    D = { kind: "exp", id: tx && tx.id, amt: tx ? String(tx.amt / 100) : "", desc: tx ? tx.desc : "", cat: tx ? tx.cat : "food", by: tx ? tx.by : g.me,
+    D = { kind: "exp", id: tx && tx.id, amt: tx ? String(tx.amt / 100) : "", desc: tx ? tx.desc : "", cat: tx ? tx.cat : "food", by: tx ? tx.by : g.me || g.members[0].id,
       mode: tx ? tx.mode : "equal", date: tx ? tx.date : today(),
       sel: new Set(tx && tx.mode === "equal" ? Object.keys(tx.parts) : g.members.map((m) => m.id)), exact: {}, shares: {} };
     g.members.forEach((m) => {
@@ -528,6 +532,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
   }
   function drawSplit() {
     const g = G(R.gid), amt = parse(D.amt), box = $("#xSplit");
+    g.members.forEach((m) => { if (!(m.id in D.shares)) { D.shares[m.id] = 0; D.exact[m.id] = ""; } }); // someone joined while the form was open
     if (D.mode === "equal") {
       const n = D.sel.size;
       box.innerHTML = `<div class="chips">${g.members.map((m) => `<button class="chip ${D.sel.has(m.id) ? "on" : ""}" data-a="xSel" data-v="${m.id}">${av(g, m.id)}${esc(m.name)}</button>`).join("")}</div>
@@ -564,6 +569,109 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
     })(t0);
   }
 
+  /* ---------- cloud sync (Google sign-in + Firestore) ----------
+     Local groups live in localStorage only. Once signed in, new groups (and local ones the user chooses to share) live in
+     Firestore under splitGroups/{id}; a copy is mirrored into S.groups so the app paints instantly and reads offline.
+     Members and transactions are stored as maps so two people adding expenses at once never overwrite each other. */
+  const FB = "https://www.gstatic.com/firebasejs/11.0.2/";
+  // Same Firebase project as the poker app. These values are public by design; access is enforced by firestore.rules.
+  const FB_CONFIG = {
+    apiKey: "AIzaSyCRu3_8WxxVXnBkOuBSK5_qIsn-V31Le_4", authDomain: "chiptable-66de8.firebaseapp.com", projectId: "chiptable-66de8",
+    storageBucket: "chiptable-66de8.firebasestorage.app", messagingSenderId: "1054959904622", appId: "1:1054959904622:web:8ac6dc5f10131d3cabc37f",
+  };
+  let C = null, U = null, unsub = null, joining = false, want = null, sheetOpen = false;
+  const skipWho = new Set();
+  let joinId = null; try { joinId = sessionStorage.getItem("hetzi-join"); } catch (e) {}
+  const setJoin = (id) => { joinId = id; try { id ? sessionStorage.setItem("hetzi-join", id) : sessionStorage.removeItem("hetzi-join"); } catch (e) {} };
+  // Cloud group ids double as the invite secret, so they are long and come from the crypto RNG.
+  const cid = () => Array.from(crypto.getRandomValues(new Uint8Array(20)), (b) => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("");
+  const ref = (id) => C.F.doc(C.db, "splitGroups", id);
+  const canEdit = (g) => !g.cloud || !!(C && U);
+  const strip = ({ id, ...t }) => t;
+  const norm = (o) => (Array.isArray(o) ? o.map(norm) : o && typeof o === "object" ? Object.fromEntries(Object.keys(o).sort().map((k) => [k, norm(o[k])])) : o);
+  const sig = (gs) => JSON.stringify(norm(gs.map((g) => ({ ...g, tx: [...g.tx].sort((a, b) => (a.id < b.id ? -1 : 1)) }))));
+
+  function fromDoc(id, d) {
+    const who = d.who || {};
+    return { id, cloud: true, name: d.name, emoji: d.emoji, cur: d.cur, owner: !!U && d.ownerUid === U.uid, me: U ? who[U.uid] : undefined, linked: Object.values(who), at: d.createdAt || 0,
+      members: Object.entries(d.members || {}).sort((a, b) => a[1].i - b[1].i).map(([mid, m]) => ({ id: mid, name: m.name })),
+      tx: Object.entries(d.tx || {}).map(([tid, t]) => ({ id: tid, ...t })) };
+  }
+  function toDoc(g) {
+    return { name: g.name, emoji: g.emoji, cur: g.cur, ownerUid: U.uid, uids: [U.uid], who: { [U.uid]: g.me }, createdAt: Date.now(),
+      members: Object.fromEntries(g.members.map((m, i) => [m.id, { name: m.name, i }])), tx: Object.fromEntries(g.tx.map((t) => [t.id, strip(t)])) };
+  }
+  function cloudErr(e) {
+    toast(e && e.code === "permission-denied" ? "אין הרשאה בענן. צריך לפרסם את כללי האבטחה ב-Firebase" : "הפעולה בענן נכשלה, נסו שוב");
+  }
+  // Field-path update on the group's document; a null value deletes that field.
+  function cloudSet(g, patch) {
+    if (!g.cloud) return;
+    for (const k in patch) if (patch[k] === null) patch[k] = C.F.deleteField();
+    C.F.updateDoc(ref(g.id), patch).catch(cloudErr);
+  }
+  function onGroups(snap) {
+    const cloud = snap.docs.map((d) => fromDoc(d.id, d.data())).sort((a, b) => b.at - a.at);
+    const same = sig(cloud) === sig(S.groups.filter((g) => g.cloud));
+    S.groups = [...cloud, ...S.groups.filter((g) => !g.cloud)]; save();
+    if (want && G(want)) return route();
+    if (R.gid && !G(R.gid)) { closeSheet(); location.hash = ""; return; }
+    if (!same) render();
+    askWho();
+  }
+  function onUser(u) {
+    U = u && { uid: u.uid, name: u.displayName || u.email || "", email: u.email || "" };
+    if (unsub) { unsub(); unsub = null; }
+    S.cloudUser = !!U;
+    if (U) unsub = C.F.onSnapshot(C.F.query(C.F.collection(C.db, "splitGroups"), C.F.where("uids", "array-contains", U.uid)), onGroups, cloudErr);
+    else S.groups = S.groups.filter((g) => !g.cloud); // the cloud keeps them; don't leave copies on a signed-out device
+    save();
+    if (R.gid && !G(R.gid)) location.hash = ""; else render();
+    tryJoin();
+  }
+  async function initCloud() {
+    try {
+      const [{ initializeApp }, A, F] = await Promise.all([import(FB + "firebase-app.js"), import(FB + "firebase-auth.js"), import(FB + "firebase-firestore.js")]);
+      const fb = initializeApp(FB_CONFIG), auth = A.getAuth(fb);
+      auth.languageCode = "he";
+      let db;
+      try { db = F.initializeFirestore(fb, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); } catch (e) { db = F.getFirestore(fb); }
+      C = { A, F, auth, db };
+      A.getRedirectResult(auth).catch(() => {});
+      A.onAuthStateChanged(auth, onUser);
+    } catch (e) { C = null; } // offline with nothing cached: cloud groups stay readable from the mirror, editing waits for a connection
+  }
+  // An invite link (#join=<id>) adds the signed-in user to the group, then asks which member they are.
+  async function tryJoin() {
+    if (!joinId || !C || joining) return;
+    if (!U) {
+      D = { kind: "join" };
+      return sheet(`<h3>הצטרפות לקבוצה</h3><div>הוזמנתם לקבוצה משותפת. כדי להצטרף ולראות את ההוצאות מתחברים עם Google.</div>
+        <div class="acts"><button class="btn acc wide" data-a="signIn">התחברות עם Google</button></div>`);
+    }
+    joining = true;
+    const id = joinId;
+    try {
+      const s = await C.F.getDoc(ref(id));
+      if (!s.exists()) toast("הקבוצה לא נמצאה");
+      else {
+        if (!(s.data().uids || []).includes(U.uid)) await C.F.updateDoc(ref(id), { uids: C.F.arrayUnion(U.uid) });
+        closeSheet(); R.tab = "tx"; location.hash = "g=" + id;
+      }
+      setJoin(null);
+    } catch (e) { cloudErr(e); }
+    joining = false;
+  }
+  function askWho() {
+    const g = R.gid && G(R.gid);
+    if (!g || !g.cloud || g.me || !U || sheetOpen || skipWho.has(g.id)) return;
+    D = { kind: "who" };
+    const free = g.members.filter((m) => !g.linked.includes(m.id));
+    sheet(`<h3>מי את/ה בקבוצה?</h3><div class="muted">בוחרים את השם שלכם כדי לראות מה החלק שלכם בכל הוצאה.</div>
+      <div class="chips" style="margin-top:14px">${free.map((m) => `<button class="chip" data-a="claim" data-v="${m.id}">${av(g, m.id)}${esc(m.name)}</button>`).join("")}</div>
+      <label for="wNew">לא ברשימה?</label><div class="acts" style="margin:0"><input class="in" id="wNew" value="${esc(S.name || U.name.split(" ")[0])}" maxlength="24" autocomplete="off"><button class="btn ghost" data-a="claimNew">הצטרפות</button></div>`);
+  }
+
   /* ---------- actions ---------- */
   const armed = new WeakSet();
   const confirmTwice = (el, label) => { // destructive buttons need a second tap
@@ -575,7 +683,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
   const done = (snd, msg) => { save(); closeSheet(); render(); FX(snd); if (msg) toast(msg); };
 
   const A = {
-    close() { FX("close"); closeSheet(); },
+    close() { FX("close"); if (D && D.kind === "who") skipWho.add(R.gid); closeSheet(); },
     home() { FX("tap"); location.hash = ""; },
     go(el) { FX("pick"); R.tab = "tx"; location.hash = "g=" + el.dataset.id; },
     tab(el) { FX("pick"); R.tab = el.dataset.t; render(); },
@@ -593,7 +701,9 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
       const name = $("#gName").value.trim(), me = $("#gMe").value.trim() || "אני";
       if (!name) return fail("תנו שם לקבוצה");
       if (!D.names.length) return fail("הוסיפו לפחות חבר אחד");
-      const meId = uid(), g = { id: uid(), name, emoji: D.emoji, cur: D.cur, me: meId, members: [{ id: meId, name: me }, ...D.names.map((n) => ({ id: uid(), name: n }))], tx: [] };
+      const meId = uid();
+      let g = { id: uid(), name, emoji: D.emoji, cur: D.cur, me: meId, members: [{ id: meId, name: me }, ...D.names.map((n) => ({ id: uid(), name: n }))], tx: [] };
+      if (C && U) { const id = cid(), doc = toDoc(g); g = fromDoc(id, doc); C.F.setDoc(ref(id), doc).catch(cloudErr); } // signed in: the group is born in the cloud
       S.groups.unshift(g); if (me !== "אני") S.name = me;
       save(); closeSheet(); FX("coin"); R.tab = "tx"; location.hash = "g=" + g.id;
     },
@@ -607,17 +717,20 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
     xShare(el) { const v = el.dataset.v, nv = D.shares[v] + +el.dataset.d; if (nv < 0 || nv > 99) return FX("err"); D.shares[v] = nv; FX("tap"); drawSplit(); },
     xSave() {
       const g = G(R.gid), amt = parse(D.amt);
+      if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
       if (!amt) return fail("הזינו סכום");
       const parts = draftParts();
       if (!parts) return fail(D.mode === "exact" ? "הסכומים לא מסתכמים לסך ההוצאה" : "בחרו בין מי לחלק");
       const tx = { id: D.id || uid(), type: "exp", amt, desc: D.desc.trim() || CAT[D.cat].label, cat: D.cat, by: D.by, mode: D.mode, parts, date: D.date || today(), ts: String(Date.now()) };
       const i = g.tx.findIndex((t) => t.id === tx.id);
       if (i >= 0) { tx.ts = g.tx[i].ts; g.tx[i] = tx; } else g.tx.push(tx);
+      cloudSet(g, { ["tx." + tx.id]: strip(tx) });
       done("coin", i >= 0 ? "ההוצאה עודכנה" : "ההוצאה נוספה");
     },
     xDel(el) {
       if (!confirmTwice(el, "בטוח? שוב")) return;
-      const g = G(R.gid); g.tx = g.tx.filter((t) => t.id !== D.id); done("del", "ההוצאה נמחקה");
+      const g = G(R.gid); if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.tx = g.tx.filter((t) => t.id !== D.id); cloudSet(g, { ["tx." + D.id]: null }); done("del", "ההוצאה נמחקה");
     },
 
     settle(el) {
@@ -631,7 +744,9 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
     },
     paySave() {
       const amt = parse($("#pAmt").value); if (!amt) return fail("הזינו סכום");
-      G(R.gid).tx.push({ id: uid(), type: "pay", by: D.from, to: D.to, amt, date: today(), ts: String(Date.now()) });
+      const g = G(R.gid), tx = { id: uid(), type: "pay", by: D.from, to: D.to, amt, date: today(), ts: String(Date.now()) };
+      if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.tx.push(tx); cloudSet(g, { ["tx." + tx.id]: strip(tx) });
       done("settle", "החוב נסגר 🎉"); confetti();
     },
     editPay(el) {
@@ -642,7 +757,8 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
     },
     payDel(el) {
       if (!confirmTwice(el, "בטוח? לחצו שוב")) return;
-      const g = G(R.gid); g.tx = g.tx.filter((t) => t.id !== D.id); done("del", "ההעברה בוטלה");
+      const g = G(R.gid); if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.tx = g.tx.filter((t) => t.id !== D.id); cloudSet(g, { ["tx." + D.id]: null }); done("del", "ההעברה בוטלה");
     },
 
     async share() {
@@ -659,28 +775,96 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
     groupSettings() {
       FX("open"); const g = G(R.gid); D = { kind: "gset" };
       const used = new Set(); g.tx.forEach((t) => { used.add(t.by); t.to && used.add(t.to); t.parts && Object.keys(t.parts).forEach((i) => used.add(i)); });
+      const linked = g.linked || [];
       sheet(`<h3>הגדרות קבוצה</h3>
+        <button class="btn acc wide" data-a="invite">${g.cloud ? "🔗 הזמנת חברים בקישור" : "☁️ שיתוף וסנכרון עם חברים"}</button>
+        <div class="hint">${g.cloud ? "הקבוצה מסונכרנת בענן. כל מי שמצטרף רואה ומעדכן אותה בזמן אמת." : "הקבוצה שמורה כרגע רק במכשיר הזה."}</div>
         <label for="sName">שם הקבוצה</label><div class="acts" style="margin:0"><input class="in" id="sName" value="${esc(g.name)}" maxlength="40"><button class="btn ghost" data-a="sRename">שמור</button></div>
-        <div class="lbl">חברים</div>${g.members.map((m) => `<div class="srow">${av(g, m.id)}<span class="nm">${esc(m.name)}${m.id === g.me ? ' <small class="muted">(אני)</small>' : ""}</span>
-          ${m.id !== g.me && !used.has(m.id) ? `<button class="btn sm danger" data-a="sDelMem" data-v="${m.id}">הסר</button>` : ""}</div>`).join("")}
+        <div class="lbl">חברים</div>${g.members.map((m) => `<div class="srow">${av(g, m.id)}<span class="nm">${esc(m.name)}${m.id === g.me ? ' <small class="muted">(אני)</small>' : linked.includes(m.id) ? " ☁️" : ""}</span>
+          ${g.cloud && !g.me && !linked.includes(m.id) ? `<button class="btn sm ghost" data-a="claim" data-v="${m.id}">זה אני</button>` : ""}
+          ${m.id !== g.me && !used.has(m.id) && !linked.includes(m.id) ? `<button class="btn sm danger" data-a="sDelMem" data-v="${m.id}">הסר</button>` : ""}</div>`).join("")}
         <div class="hint" style="text-align:start">אפשר להסיר רק חברים שלא מופיעים בהוצאות.</div>
         <div class="acts" style="margin-top:10px"><input class="in" id="sAdd" placeholder="חבר/ה חדש/ה" maxlength="24"><button class="btn ghost" data-a="sAddMem">הוסף</button></div>
-        <div class="acts"><button class="btn danger wide" data-a="sDelGroup">מחיקת הקבוצה</button></div>`);
+        <div class="acts"><button class="btn danger wide" data-a="sDelGroup">${g.cloud && !g.owner ? "יציאה מהקבוצה" : "מחיקת הקבוצה"}</button></div>`);
     },
-    sRename() { const n = $("#sName").value.trim(); if (!n) return fail("שם ריק"); G(R.gid).name = n; done("pick", "השם עודכן"); },
-    sAddMem() { const n = $("#sAdd").value.trim(); if (!n) return fail("כתבו שם"); G(R.gid).members.push({ id: uid(), name: n }); save(); render(); FX("coin"); A.groupSettings(); },
-    sDelMem(el) { const g = G(R.gid); g.members = g.members.filter((m) => m.id !== el.dataset.v); save(); render(); FX("del"); A.groupSettings(); },
+    sRename() {
+      const n = $("#sName").value.trim(), g = G(R.gid); if (!n) return fail("שם ריק");
+      if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.name = n; cloudSet(g, { name: n }); done("pick", "השם עודכן");
+    },
+    sAddMem() {
+      const n = $("#sAdd").value.trim(), g = G(R.gid), id = uid(); if (!n) return fail("כתבו שם");
+      if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.members.push({ id, name: n }); cloudSet(g, { ["members." + id]: { name: n, i: Date.now() } }); save(); render(); FX("coin"); A.groupSettings();
+    },
+    sDelMem(el) {
+      const g = G(R.gid), id = el.dataset.v; if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.members = g.members.filter((m) => m.id !== id); cloudSet(g, { ["members." + id]: null }); save(); render(); FX("del"); A.groupSettings();
+    },
+    claim(el) {
+      const g = G(R.gid); if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.me = el.dataset.v; g.linked.push(g.me); cloudSet(g, { ["who." + U.uid]: g.me }); done("coin", "מעולה, נרשם");
+    },
+    claimNew() {
+      const n = $("#wNew").value.trim(), g = G(R.gid), id = uid(); if (!n) return fail("כתבו שם");
+      if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      g.members.push({ id, name: n }); g.me = id; g.linked.push(id);
+      cloudSet(g, { ["members." + id]: { name: n, i: Date.now() }, ["who." + U.uid]: id }); done("coin", "ברוכים הבאים לקבוצה");
+    },
+    // Local group: upload it to the cloud first (only then drop the local copy). Then show the invite link.
+    async invite(el) {
+      let g = G(R.gid);
+      if (!C || !U) { toast("קודם מתחברים עם Google"); return A.settings(); }
+      FX("tap");
+      if (!g.cloud) {
+        if (D.busy) return; D.busy = true; el.textContent = "מעלה לענן…";
+        const id = cid(), doc = toDoc(g);
+        try { await C.F.setDoc(ref(id), doc); } catch (e) { if (D) D.busy = false; el.textContent = "☁️ שיתוף וסנכרון עם חברים"; return cloudErr(e); }
+        S.groups = S.groups.filter((x) => x.id !== g.id); g = fromDoc(id, doc); S.groups.unshift(g); save();
+        location.hash = "g=" + id;
+      }
+      const url = location.origin + location.pathname + "#join=" + g.id;
+      D = { kind: "invite", url, name: g.name };
+      sheet(`<h3>הזמנת חברים</h3><div class="muted">שולחים את הקישור לחברי הקבוצה. מי שפותח אותו ומתחבר עם Google מצטרף, רואה את כל ההוצאות ויכול להוסיף ולעדכן.</div>
+        <label for="iUrl">קישור הצטרפות</label><input class="in" id="iUrl" readonly dir="ltr" value="${esc(url)}">
+        <div class="acts"><button class="btn acc wide" data-a="sendLink">📤 שליחת הקישור</button></div>`);
+    },
+    async sendLink() {
+      FX("tap");
+      try {
+        if (navigator.share) await navigator.share({ title: "חצי־חצי", text: `הצטרפו לקבוצה "${D.name}" בחצי־חצי`, url: D.url });
+        else { await navigator.clipboard.writeText(D.url); toast("הקישור הועתק"); }
+      } catch (e) { if (e && e.name !== "AbortError") { const i = $("#iUrl"); i && i.select(); toast("סמנו והעתיקו את הקישור"); } }
+    },
+    async signIn() {
+      if (!C) return fail("אין חיבור לענן כרגע, נסו שוב בעוד רגע");
+      FX("tap");
+      const p = new C.A.GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });
+      // Popup first: redirect sign-in breaks in Safari when the app is not hosted on <project>.firebaseapp.com.
+      try { await C.A.signInWithPopup(C.auth, p); if (D && D.kind !== "who") closeSheet(); toast("התחברת ☁️"); }
+      catch (e) {
+        if (["auth/popup-blocked", "auth/operation-not-supported-in-this-environment", "auth/cancelled-popup-request"].includes(e.code)) return C.A.signInWithRedirect(C.auth, p);
+        if (e.code !== "auth/popup-closed-by-user") toast("ההתחברות נכשלה");
+      }
+    },
+    signOut() { FX("tap"); C.A.signOut(C.auth); closeSheet(); toast("התנתקת"); },
     sDelGroup(el) {
-      if (!confirmTwice(el, "למחוק הכול? לחצו שוב")) return;
-      S.groups = S.groups.filter((g) => g.id !== R.gid); save(); closeSheet(); FX("del"); toast("הקבוצה נמחקה"); location.hash = "";
+      const g = G(R.gid); if (!canEdit(g)) return fail("אין חיבור לענן כרגע");
+      if (!confirmTwice(el, g.cloud && !g.owner ? "לצאת? לחצו שוב" : g.cloud ? "למחוק לכולם? לחצו שוב" : "למחוק הכול? לחצו שוב")) return;
+      if (g.cloud) (g.owner ? C.F.deleteDoc(ref(g.id)) : C.F.updateDoc(ref(g.id), { uids: C.F.arrayRemove(U.uid), ["who." + U.uid]: C.F.deleteField() })).catch(cloudErr);
+      S.groups = S.groups.filter((g) => g.id !== R.gid); save(); closeSheet(); FX("del"); toast(g.cloud && !g.owner ? "יצאת מהקבוצה" : "הקבוצה נמחקה"); location.hash = "";
     },
 
     settings() {
       FX("open"); D = { kind: "set" };
       sheet(`<h3>הגדרות</h3>
+        ${U ? `<div class="card">☁️ מחובר/ת: <b>${esc(U.name)}</b><div class="muted" style="font-size:13px" dir="ltr">${esc(U.email)}</div>
+          <div class="acts" style="margin-top:10px"><button class="btn ghost sm" data-a="signOut">התנתקות</button></div></div>`
+        : `<div class="card"><b>☁️ סנכרון בענן</b><div class="muted" style="font-size:14px">מתחברים עם Google כדי לשתף קבוצות עם חברים ולראות אותן בכל המכשירים.</div>
+          <div class="acts" style="margin-top:10px"><button class="btn acc wide" data-a="signIn">התחברות עם Google</button></div></div>`}
         <button class="sw ${S.sound ? "on" : ""}" data-a="tSound" role="switch" aria-checked="${S.sound}">🔊 צלילים<i></i></button>
         <button class="sw ${S.haptic ? "on" : ""}" data-a="tHaptic" role="switch" aria-checked="${S.haptic}">📳 רטט (הפטיקס)<i></i></button>
-        <div class="hint" style="text-align:start">הנתונים נשמרים במכשיר הזה בלבד. גיבוי מאפשר להעביר אותם למכשיר אחר.</div>
+        <div class="hint" style="text-align:start">קבוצות בלי ☁️ נשמרות במכשיר הזה בלבד. הגיבוי כולל רק אותן.</div>
         <div class="acts"><button class="btn ghost wide" data-a="export">⬇️ גיבוי</button><button class="btn ghost wide" data-a="import">⬆️ שחזור</button></div>
         <input type="file" id="imp" accept="application/json,.json" hidden>`);
     },
@@ -688,7 +872,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
     tHaptic(el) { S.haptic = !S.haptic; save(); el.classList.toggle("on", S.haptic); el.setAttribute("aria-checked", S.haptic); FX("coin"); },
     export() {
       FX("tap"); const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({ ...S, groups: S.groups.filter((g) => !g.cloud) }, null, 2)], { type: "application/json" }));
       a.download = `hetzi-hetzi-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     },
     import() { FX("tap"); $("#imp").click(); },
@@ -719,7 +903,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
       try {
         const d = JSON.parse(fr.result);
         if (!d || !Array.isArray(d.groups) || !d.groups.every((g) => g.id && Array.isArray(g.members) && Array.isArray(g.tx))) throw 0;
-        S = { v: 1, sound: true, haptic: true, ...d }; save(); closeSheet(); location.hash = ""; render(); FX("coin"); toast("הנתונים שוחזרו");
+        S = { v: 1, sound: true, haptic: true, ...d, groups: [...S.groups.filter((g) => g.cloud), ...d.groups.filter((g) => !g.cloud)] }; save(); closeSheet(); location.hash = ""; render(); FX("coin"); toast("הנתונים שוחזרו");
       } catch (err) { fail("קובץ הגיבוי לא תקין"); }
     };
     fr.readAsText(e.target.files[0]);
@@ -732,6 +916,7 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10
 
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
   route();
+  initCloud();
 })();
 </script>
 </body>
