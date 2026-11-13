@@ -1,5 +1,5 @@
 /* App-shell cache so the app opens offline; network first so updates land right away. */
-const CACHE = "hetzi-v2";
+const CACHE = "hetzi-v3";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", (e) => {
