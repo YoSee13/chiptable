@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>חצי־חצי</title>
+<meta name="description" content="מחלקים הוצאות בין חברים: קבוצות, הוצאות, יתרות וסגירת חשבון במינימום העברות.">
+<meta name="theme-color" content="#f6f0e4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16151b" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="חצי־חצי">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&family=Secular+One&display=swap">
+<style>
+/* One mobile column on "receipt paper"; bottom sheets for every form; all colors are tokens with a dark variant. */
+:root {
+  --bg: #f6f0e4; --bg-2: #efe7d7; --card: #fffdf8; --line: #e4dac6;
+  --ink: #1d1b22; --muted: #7a7466; --accent: #ff6a3d; --accent-ink: #fff;
+  --pos: #178a5c; --pos-bg: #dcf3e6; --neg: #d1345b; --neg-bg: #fbe1e7;
+  --hero: #1d1b22; --hero-ink: #fbf6ea; --shadow: 0 6px 22px rgba(60, 45, 20, .10);
+  --f: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fd: "Secular One", "Rubik", system-ui, sans-serif;
+  --r: 18px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16151b; --bg-2: #1e1d25; --card: #23222b; --line: #34323e;
+    --ink: #f4efe4; --muted: #a19b8d; --accent: #ff7a4f; --accent-ink: #1d1108;
+    --pos: #5fd6a0; --pos-bg: #173328; --neg: #ff7d98; --neg-bg: #3b1a25;
+    --hero: #2b2a35; --hero-ink: #fbf6ea; --shadow: 0 6px 22px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f); font-size: 16px; line-height: 1.45;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; touch-action: manipulation; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.n { direction: ltr; unicode-bidi: isolate; display: inline-block; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.pos { color: var(--pos); } .neg { color: var(--neg); }
+
+.shell {
+  max-width: 560px; margin: 0 auto; min-height: 100%;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) max(16px, env(safe-area-inset-right, 0px)) 130px max(16px, env(safe-area-inset-left, 0px));
+}
+.top { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; min-height: 44px; }
+.top h1 { font-family: var(--fd); font-weight: 400; font-size: 28px; margin: 0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.logo { display: inline-flex; align-items: center; gap: 8px; }
+.logo i { width: 30px; height: 30px; border-radius: 50%; background: conic-gradient(var(--accent) 0 50%, var(--ink) 50% 100%); display: inline-block; transform: rotate(-20deg); }
+.ib {
+  width: 44px; height: 44px; border-radius: 14px; background: var(--card); border: 1px solid var(--line);
+  display: grid; place-items: center; font-size: 19px; flex: none; transition: transform .12s;
+}
+.ib:active, .btn:active, .fab:active, .chip:active, .row:active, .gcard:active { transform: scale(.96); }
+
+/* hero "ticket" */
+.hero {
+  background: var(--hero); color: var(--hero-ink); border-radius: 22px 22px 0 0; padding: 22px 22px 34px; margin-bottom: 20px;
+  -webkit-mask: radial-gradient(circle 7px at 50% 100%, #0000 97%, #000) 50% 0 / 20px 100%;
+  mask: radial-gradient(circle 7px at 50% 100%, #0000 97%, #000) 50% 0 / 20px 100%;
+}
+.hero small { opacity: .7; font-size: 14px; }
+.hero .big { font-family: var(--fd); font-size: 52px; line-height: 1.1; margin: 4px 0 2px; }
+.hero .big.p { color: #7be3b1; } .hero .big.m { color: #ff93a9; }
+.hero .split { display: flex; gap: 18px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,.25); font-size: 14px; }
+.hero .split b { display: block; font-size: 18px; font-weight: 600; }
+
+h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 22px 4px 10px; letter-spacing: .02em; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; box-shadow: var(--shadow); }
+
+.gcard {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: start; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); transition: transform .12s;
+  animation: rise .35s both; animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+.tile { width: 50px; height: 50px; border-radius: 15px; display: grid; place-items: center; font-size: 25px; flex: none; background: var(--bg-2); }
+.gcard .mid { flex: 1; min-width: 0; }
+.gcard .mid b { display: block; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gcard .mid span { font-size: 13px; color: var(--muted); }
+.pill { font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 99px; background: var(--bg-2); color: var(--muted); white-space: nowrap; text-align: center; }
+.pill.pos { background: var(--pos-bg); color: var(--pos); } .pill.neg { background: var(--neg-bg); color: var(--neg); }
+.pill small { display: block; font-weight: 400; font-size: 11px; }
+
+.fab {
+  position: fixed; inset-inline: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); margin: 0 auto; width: max-content;
+  background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 17px; padding: 15px 26px; border-radius: 99px;
+  box-shadow: 0 10px 26px rgba(255, 106, 61, .45); z-index: 5; transition: transform .12s;
+}
+.empty { text-align: center; padding: 30px 10px; color: var(--muted); }
+.empty svg { width: 150px; height: auto; margin-bottom: 8px; }
+.empty b { display: block; color: var(--ink); font-size: 19px; margin-bottom: 4px; }
+
+/* group */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.stat small { color: var(--muted); font-size: 13px; display: block; }
+.stat b { font-family: var(--fd); font-weight: 400; font-size: 26px; }
+.tabs { display: flex; background: var(--bg-2); border-radius: 14px; padding: 4px; margin-bottom: 14px; }
+.tabs button { flex: 1; padding: 10px 4px; border-radius: 11px; font-weight: 600; color: var(--muted); font-size: 15px; }
+.tabs button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.day { font-size: 13px; color: var(--muted); margin: 16px 4px 6px; }
+.row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: start; padding: 11px 12px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 16px; margin-bottom: 8px; transition: transform .12s; animation: rise .3s both; animation-delay: calc(var(--i, 0) * 30ms);
+}
+.row .tile { width: 44px; height: 44px; font-size: 21px; border-radius: 13px; }
+.row .mid { flex: 1; min-width: 0; }
+.row .mid b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .mid span, .row .end span { font-size: 13px; color: var(--muted); }
+.row .end { text-align: end; flex: none; }
+.row .end b { display: block; font-weight: 700; }
+.row.pay { background: transparent; border-style: dashed; }
+
+.av { width: 34px; height: 34px; border-radius: 50%; display: inline-grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px; flex: none; }
+.brow { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+.brow .mid { flex: 1; min-width: 0; }
+.brow .nm { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 15px; }
+.track { height: 9px; background: var(--bg-2); border-radius: 9px; margin-top: 5px; overflow: hidden; }
+.track i { display: block; height: 100%; border-radius: 9px; width: 0; transition: width .7s cubic-bezier(.2,.8,.2,1); }
+.tr { display: flex; align-items: center; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+.tr:first-child { border-top: 0; }
+.tr .who { flex: 1; min-width: 0; font-size: 15px; line-height: 1.3; }
+.tr .who b { font-family: var(--fd); font-weight: 400; font-size: 20px; display: block; }
+.arrow { color: var(--muted); font-size: 18px; }
+.btn { background: var(--ink); color: var(--bg); font-weight: 600; padding: 11px 16px; border-radius: 13px; transition: transform .12s; white-space: nowrap; }
+.btn.acc { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: var(--bg-2); color: var(--ink); }
+.btn.danger { background: var(--neg-bg); color: var(--neg); }
+.btn.wide { width: 100%; padding: 15px; font-size: 17px; border-radius: 16px; }
+.btn.sm { padding: 8px 12px; font-size: 14px; }
+
+.donut { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.donut svg { width: 170px; height: 170px; flex: none; }
+.donut circle { transition: stroke-dasharray .8s cubic-bezier(.2,.8,.2,1); }
+.legend { flex: 1; min-width: 150px; font-size: 14px; }
+.legend div { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.legend span { flex: 1; }
+
+/* sheets */
+.back { position: fixed; inset: 0; background: rgba(15, 12, 8, .5); z-index: 20; opacity: 0; transition: opacity .25s; }
+.back.on { opacity: 1; }
+.sheet {
+  position: fixed; inset: auto 0 0 0; margin: 0 auto; max-width: 560px; max-height: 92dvh; overflow-y: auto; z-index: 21; background: var(--bg);
+  border-radius: 26px 26px 0 0; padding: 10px 18px calc(env(safe-area-inset-bottom, 0px) + 22px); transform: translateY(105%);
+  transition: transform .32s cubic-bezier(.2,.9,.25,1); overscroll-behavior: contain;
+}
+.sheet.on { transform: none; }
+.sheet::before { content: ""; display: block; width: 44px; height: 5px; border-radius: 5px; background: var(--line); margin: 0 auto 12px; }
+.sheet h3 { font-family: var(--fd); font-weight: 400; font-size: 24px; margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; }
+.sheet label, .lbl { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 16px 2px 7px; }
+.in {
+  width: 100%; background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 13px 14px; font-size: 16px; outline: 0;
+}
+.in:focus { border-color: var(--accent); }
+.amt { display: flex; align-items: baseline; justify-content: center; gap: 6px; direction: ltr; padding: 8px 0 4px; }
+.amt span { font-family: var(--fd); font-size: 34px; color: var(--muted); }
+.amt input {
+  font-family: var(--fd); font-size: 60px; width: 5.2ch; min-width: 2ch; text-align: center; background: none; border: 0; outline: 0; padding: 0;
+  border-bottom: 3px dashed var(--line); border-radius: 0; caret-color: var(--accent);
+}
+.amt input:focus { border-color: var(--accent); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chips.scroll { flex-wrap: nowrap; overflow-x: auto; margin-inline: -18px; padding-inline: 18px; scrollbar-width: none; }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; background: var(--card); border: 1.5px solid var(--line); border-radius: 99px;
+  padding: 8px 13px; font-weight: 500; white-space: nowrap; transition: transform .12s, background .15s; flex: none;
+}
+.chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip .av { width: 22px; height: 22px; font-size: 11px; }
+.chip.emo { font-size: 24px; padding: 8px; width: 50px; height: 50px; justify-content: center; border-radius: 15px; }
+.chip.emo.on { background: var(--accent); border-color: var(--accent); }
+.seg { display: flex; background: var(--bg-2); border-radius: 13px; padding: 4px; }
+.seg button { flex: 1; padding: 9px 4px; border-radius: 10px; font-weight: 600; color: var(--muted); font-size: 14px; }
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.srow { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.srow .nm { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow .in { width: 110px; padding: 9px 10px; text-align: center; direction: ltr; }
+.step { display: flex; align-items: center; gap: 4px; }
+.step button { width: 38px; height: 38px; border-radius: 12px; background: var(--card); border: 1.5px solid var(--line); font-size: 20px; font-weight: 700; }
+.step b { width: 26px; text-align: center; }
+.hint { font-size: 14px; margin-top: 8px; text-align: center; color: var(--muted); }
+.acts { display: flex; gap: 10px; margin-top: 22px; }
+.acts .btn.wide { flex: 1; }
+.sw { display: flex; align-items: center; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid var(--line); width: 100%; text-align: start; font-size: 16px; }
+.sw i { width: 50px; height: 30px; border-radius: 30px; background: var(--line); position: relative; transition: background .2s; flex: none; }
+.sw i::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.sw.on i { background: var(--pos); } .sw.on i::after { transform: translateX(-20px); }
+.shake { animation: shake .35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
+.toast {
+  position: fixed; inset-inline: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 90px); margin: 0 auto; width: max-content; max-width: 88vw; z-index: 40;
+  background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 99px; font-weight: 500; opacity: 0; transform: translateY(12px);
+  transition: .25s; pointer-events: none; text-align: center;
+}
+.toast.on { opacity: 1; transform: none; }
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="shell" id="app"></div>
+<div id="sheetHost"></div>
+<div class="toast" id="toast" role="status"></div>
+<canvas id="fx"></canvas>
+
+<script>
+/* חצי־חצי — expense splitting between friends. All data stays on this device (localStorage); money is kept in agorot (integers). */
+(() => {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+
+  const CATS = [
+    ["food", "🍽️", "אוכל", "#ff6a3d"], ["market", "🛒", "סופר", "#2a9d8f"], ["home", "🏠", "דיור", "#7b5cff"], ["ride", "🚗", "נסיעות", "#2f80ed"],
+    ["fuel", "⛽", "דלק", "#b0603a"], ["fun", "🎉", "בילוי", "#e0457b"], ["flight", "✈️", "טיסות", "#18a5c9"], ["stay", "🏨", "לינה", "#e9a100"],
+    ["bills", "💡", "חשבונות", "#8a9a2b"], ["gift", "🎁", "מתנות", "#c046c9"], ["gear", "📷", "ציוד", "#5a6478"], ["other", "📦", "אחר", "#9c9484"],
+  ];
+  const CAT = Object.fromEntries(CATS.map((c) => [c[0], { emoji: c[1], label: c[2], color: c[3] }]));
+  const EMOJIS = ["🏕️", "🏠", "✈️", "🍕", "🎬", "🎉", "🚗", "🏖️", "💼", "📷", "⚽", "❤️"];
+  const COLORS = ["#ff6a3d", "#2a9d8f", "#7b5cff", "#e9a100", "#e0457b", "#2f80ed", "#3aa655", "#b0603a"];
+  const CURS = ["₪", "$", "€"];
+
+  /* ---------- store ---------- */
+  const KEY = "hetzi-data-v1";
+  let S = (() => {
+    try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && Array.isArray(d.groups)) return d; } catch (e) {}
+    return { v: 1, groups: [], sound: true, haptic: true };
+  })();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  /* ---------- sound + haptics ---------- */
+  const FX = (() => {
+    let ctx, hx;
+    const ac = () => {
+      if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ctx = new C(); }
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    };
+    const tone = (f, at, dur, type = "sine", vol = 0.1, f2) => {
+      const c = ac(); if (!c) return;
+      const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + at;
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.03);
+    };
+    const SND = {
+      tap: () => tone(680, 0, 0.05, "sine", 0.06),
+      pick: () => tone(520, 0, 0.06, "triangle", 0.08, 780),
+      open: () => tone(330, 0, 0.12, "sine", 0.05, 520),
+      close: () => tone(520, 0, 0.1, "sine", 0.04, 330),
+      coin: () => { tone(988, 0, 0.09, "square", 0.05); tone(1319, 0.08, 0.32, "square", 0.05); },
+      settle: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.09, 0.35, "triangle", 0.11)),
+      del: () => tone(320, 0, 0.22, "sawtooth", 0.05, 110),
+      err: () => { tone(150, 0, 0.1, "square", 0.06); tone(120, 0.13, 0.14, "square", 0.06); },
+    };
+    const VIB = { tap: 8, pick: 12, open: 10, close: 6, coin: [12, 40, 24], settle: [18, 50, 18, 50, 40], del: 30, err: [45, 60, 45] };
+    // iOS Safari has no vibrate(); toggling a hidden "switch" checkbox produces the system haptic tick on recent versions.
+    const iosTick = () => {
+      if (!hx) {
+        hx = document.createElement("label");
+        hx.setAttribute("aria-hidden", "true");
+        hx.style.cssText = "position:fixed;left:-99px;top:0;opacity:0;pointer-events:none";
+        hx.innerHTML = '<input type="checkbox" switch tabindex="-1">';
+        document.body.appendChild(hx);
+      }
+      hx.click();
+    };
+    return (name) => {
+      if (S.sound) try { SND[name](); } catch (e) {}
+      if (S.haptic) try { navigator.vibrate ? navigator.vibrate(VIB[name]) : iosTick(); } catch (e) {}
+    };
+  })();
+
+  /* ---------- money + math ---------- */
+  const fmt = (a, cur) => `<span class="n">${cur}${(Math.abs(a) / 100).toLocaleString("en-US", { minimumFractionDigits: a % 100 ? 2 : 0, maximumFractionDigits: 2 })}</span>`;
+  const plain = (a, cur) => cur + (Math.abs(a) / 100).toLocaleString("en-US", { minimumFractionDigits: a % 100 ? 2 : 0, maximumFractionDigits: 2 });
+  const parse = (s) => { const x = parseFloat(String(s).replace(",", ".")); return isFinite(x) && x > 0 ? Math.round(x * 100) : 0; };
+
+  // How much each participant owes for one expense, in agorot, always summing exactly to tx.amt.
+  function owed(tx) {
+    const ids = Object.keys(tx.parts), out = {};
+    if (tx.mode === "exact") { ids.forEach((i) => (out[i] = tx.parts[i])); return out; }
+    const w = ids.map((i) => (tx.mode === "shares" ? tx.parts[i] : 1)), W = w.reduce((a, b) => a + b, 0);
+    if (!W) return out;
+    let rest = tx.amt;
+    ids.forEach((id, k) => { out[id] = Math.floor((tx.amt * w[k]) / W); rest -= out[id]; });
+    for (let k = 0; rest > 0; k = (k + 1) % ids.length) if (w[k] > 0) { out[ids[k]]++; rest--; }
+    return out;
+  }
+  function nets(g) {
+    const net = Object.fromEntries(g.members.map((m) => [m.id, 0]));
+    for (const tx of g.tx) {
+      if (tx.type === "pay") { net[tx.by] += tx.amt; net[tx.to] -= tx.amt; continue; }
+      net[tx.by] += tx.amt;
+      const o = owed(tx); for (const id in o) net[id] -= o[id];
+    }
+    return net;
+  }
+  // Fewest-ish transfers: repeatedly match the biggest debtor with the biggest creditor.
+  function transfers(net) {
+    const cr = [], db = [];
+    for (const [id, v] of Object.entries(net)) { if (v > 0) cr.push({ id, v }); else if (v < 0) db.push({ id, v: -v }); }
+    const out = [];
+    while (cr.length && db.length) {
+      cr.sort((a, b) => b.v - a.v); db.sort((a, b) => b.v - a.v);
+      const a = Math.min(cr[0].v, db[0].v);
+      out.push({ from: db[0].id, to: cr[0].id, amt: a });
+      if (!(cr[0].v -= a)) cr.shift();
+      if (!(db[0].v -= a)) db.shift();
+    }
+    return out;
+  }
+  const total = (g) => g.tx.reduce((s, t) => s + (t.type === "pay" ? 0 : t.amt), 0);
+  const G = (id) => S.groups.find((g) => g.id === id);
+  const M = (g, id) => g.members.find((m) => m.id === id) || { name: "?", id };
+  const mcolor = (g, id) => COLORS[Math.max(0, g.members.findIndex((m) => m.id === id)) % COLORS.length];
+  const av = (g, id) => `<span class="av" style="background:${mcolor(g, id)}">${esc(M(g, id).name.trim().charAt(0) || "?")}</span>`;
+
+  /* ---------- routing + render ---------- */
+  let R = { gid: null, tab: "tx" };
+  const app = $("#app");
+  function route() {
+    const m = location.hash.match(/^#g=(\w+)/);
+    R.gid = m && G(m[1]) ? m[1] : null;
+    render(); window.scrollTo(0, 0);
+  }
+  addEventListener("hashchange", route);
+
+  function render() {
+    app.innerHTML = R.gid ? groupView(G(R.gid)) : homeView();
+    requestAnimationFrame(() => {
+      app.querySelectorAll("[data-w]").forEach((el) => (el.style.width = el.dataset.w + "%"));
+      app.querySelectorAll("[data-count]").forEach(countUp);
+    });
+  }
+  function countUp(el) {
+    const to = +el.dataset.count, cur = el.dataset.cur, t0 = performance.now(), dur = 650;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !to) { el.innerHTML = fmt(to, cur); return; }
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.innerHTML = fmt(p < 1 ? Math.round((to * e) / 100) * 100 : to, cur);
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function homeView() {
+    const by = {}; // currency -> {plus, minus}
+    const cards = S.groups.map((g, i) => {
+      const my = nets(g)[g.me] || 0, c = (by[g.cur] = by[g.cur] || { p: 0, m: 0 });
+      if (my > 0) c.p += my; else c.m -= my;
+      const pill = my > 0 ? `<span class="pill pos"><small>מגיע לך</small>${fmt(my, g.cur)}</span>`
+        : my < 0 ? `<span class="pill neg"><small>החוב שלך</small>${fmt(my, g.cur)}</span>` : `<span class="pill">מאוזן ✓</span>`;
+      return `<button class="gcard" style="--i:${i}" data-a="go" data-id="${g.id}">
+        <span class="tile">${g.emoji}</span>
+        <span class="mid"><b>${esc(g.name)}</b><span>${g.members.length} חברים · ${g.tx.filter((t) => t.type !== "pay").length} הוצאות</span></span>${pill}</button>`;
+    }).join("");
+    const curs = Object.keys(by);
+    const hero = curs.length ? curs.map((cur) => {
+      const { p, m } = by[cur], net = p - m;
+      return `<small>${net > 0 ? "בסך הכול מגיע לך" : net < 0 ? "בסך הכול החוב שלך" : "הכול מאוזן"}</small>
+        <div class="big ${net > 0 ? "p" : net < 0 ? "m" : ""}" data-count="${Math.abs(net)}" data-cur="${cur}">${fmt(0, cur)}</div>
+        <div class="split"><div>מגיע לך<b>${fmt(p, cur)}</b></div><div>החוב שלך<b>${fmt(m, cur)}</b></div></div>`;
+    }).join('<div style="height:18px"></div>') : `<small>ברוכים הבאים</small><div class="big">חצי־חצי</div><small>מחלקים הוצאות, נשארים חברים.</small>`;
+    return `
+      <div class="top"><h1><span class="logo"><i></i>חצי־חצי</span></h1>
+        <button class="ib" data-a="settings" aria-label="הגדרות">⚙️</button></div>
+      <div class="hero">${hero}</div>
+      ${S.groups.length ? `<h2>הקבוצות שלי</h2>${cards}` : `<div class="empty">
+        <svg viewBox="0 0 150 110" fill="none"><circle cx="75" cy="55" r="42" fill="var(--bg-2)"/><path d="M75 13a42 42 0 0 1 0 84z" fill="var(--accent)"/>
+        <path d="M75 8v94" stroke="var(--ink)" stroke-width="3" stroke-dasharray="6 6" stroke-linecap="round"/><circle cx="58" cy="50" r="4" fill="var(--ink)"/><circle cx="92" cy="50" r="4" fill="var(--ink)"/>
+        <path d="M60 66q15 12 30 0" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/></svg>
+        <b>עדיין אין קבוצות</b>פותחים קבוצה לטיול, לדירה או לארוחה ומתחילים לרשום.<br><br>
+        <button class="btn ghost" data-a="demo">טען קבוצה לדוגמה</button></div>`}
+      <button class="fab" data-a="newGroup">＋ קבוצה חדשה</button>`;
+  }
+
+  const dayLabel = (d) => {
+    const t = today(); if (d === t) return "היום";
+    const y = new Date(Date.now() - 864e5); if (d === new Date(y - y.getTimezoneOffset() * 6e4).toISOString().slice(0, 10)) return "אתמול";
+    return new Date(d + "T12:00").toLocaleDateString("he-IL", { day: "numeric", month: "long", year: d.slice(0, 4) === t.slice(0, 4) ? undefined : "numeric" });
+  };
+
+  function groupView(g) {
+    const net = nets(g), my = net[g.me] || 0, tot = total(g);
+    let body = "";
+    if (R.tab === "tx") {
+      const list = [...g.tx].sort((a, b) => (b.date + b.ts).localeCompare(a.date + a.ts));
+      let last = "", i = 0;
+      body = list.map((t) => {
+        const head = t.date !== last ? `<div class="day">${dayLabel((last = t.date))}</div>` : "";
+        if (t.type === "pay") return `${head}<button class="row pay" style="--i:${i++}" data-a="editPay" data-id="${t.id}">
+          <span class="tile">💸</span><span class="mid"><b>${esc(M(g, t.by).name)} ← ${esc(M(g, t.to).name)}</b><span>העברה לסגירת חוב</span></span>
+          <span class="end"><b>${fmt(t.amt, g.cur)}</b></span></button>`;
+        const c = CAT[t.cat] || CAT.other, o = owed(t), mine = (t.by === g.me ? t.amt : 0) - (o[g.me] || 0);
+        return `${head}<button class="row" style="--i:${i++}" data-a="editExp" data-id="${t.id}">
+          <span class="tile" style="background:${c.color}22">${c.emoji}</span>
+          <span class="mid"><b>${esc(t.desc)}</b><span>שולם ע״י ${esc(M(g, t.by).name)}</span></span>
+          <span class="end"><b>${fmt(t.amt, g.cur)}</b>${mine > 0 ? `<span class="pos">מגיע לך ${fmt(mine, g.cur)}</span>` : mine < 0 ? `<span class="neg">חלקך ${fmt(mine, g.cur)}</span>` : `<span>לא משתתף</span>`}</span></button>`;
+      }).join("") || `<div class="empty"><b>אין עדיין הוצאות</b>לוחצים על הכפתור למטה ומוסיפים את הראשונה.</div>`;
+    } else if (R.tab === "bal") {
+      const max = Math.max(1, ...Object.values(net).map(Math.abs)), tr = transfers(net);
+      body = `<div class="card">${g.members.map((m) => {
+        const v = net[m.id];
+        return `<div class="brow">${av(g, m.id)}<div class="mid"><div class="nm"><span>${esc(m.name)}${m.id === g.me ? ' <small class="muted">(אני)</small>' : ""}</span>
+          <span class="${v > 0 ? "pos" : v < 0 ? "neg" : "muted"}">${v > 0 ? "+" : v < 0 ? "−" : ""}${fmt(v, g.cur)}</span></div>
+          <div class="track"><i data-w="${(Math.abs(v) / max) * 100}" style="background:var(${v >= 0 ? "--pos" : "--neg"})"></i></div></div></div>`;
+      }).join("")}</div>
+      <h2>איך סוגרים חשבון</h2>
+      <div class="card">${tr.length ? tr.map((t) => `<div class="tr">${av(g, t.from)}<span class="arrow">←</span>${av(g, t.to)}
+          <div class="who">${esc(M(g, t.from).name)} מעביר/ה ל${esc(M(g, t.to).name)}<b>${fmt(t.amt, g.cur)}</b></div>
+          <button class="btn sm acc" data-a="settle" data-from="${t.from}" data-to="${t.to}" data-amt="${t.amt}">שולם</button></div>`).join("")
+        : `<div class="empty" style="padding:14px"><b>🎉 כולם מאוזנים</b>אין חובות פתוחים בקבוצה.</div>`}</div>
+      <div class="acts"><button class="btn ghost wide" data-a="share">📤 שיתוף סיכום</button></div>`;
+    } else {
+      const byCat = {}, paid = {};
+      g.tx.forEach((t) => { if (t.type === "pay") return; byCat[t.cat] = (byCat[t.cat] || 0) + t.amt; paid[t.by] = (paid[t.by] || 0) + t.amt; });
+      const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+      if (!tot) body = `<div class="empty"><b>אין נתונים לתרשים</b>אחרי שמוסיפים הוצאות יופיע כאן פילוח.</div>`;
+      else {
+        let off = 25;
+        const arcs = cats.map(([k, v]) => { const p = (v / tot) * 100, s = `<circle cx="21" cy="21" r="15.915" fill="none" stroke="${(CAT[k] || CAT.other).color}" stroke-width="6.5" stroke-dasharray="${p} ${100 - p}" stroke-dashoffset="${off}"/>`; off -= p; return s; }).join("");
+        const maxP = Math.max(...Object.values(paid));
+        body = `<h2 style="margin-top:4px">לפי קטגוריה</h2><div class="card donut">
+          <svg viewBox="0 0 42 42" role="img" aria-label="פילוח הוצאות לפי קטגוריה">${arcs}
+            <text x="21" y="20" text-anchor="middle" font-size="3" fill="var(--muted)">סה״כ</text>
+            <text x="21" y="25.5" text-anchor="middle" font-size="5" font-family="Secular One, Rubik" fill="var(--ink)" direction="ltr">${plain(Math.round(tot / 100) * 100, g.cur)}</text></svg>
+          <div class="legend">${cats.map(([k, v]) => { const c = CAT[k] || CAT.other; return `<div><i style="background:${c.color}"></i><span>${c.emoji} ${c.label}</span><b>${fmt(v, g.cur)}</b><small class="muted n">${Math.round((v / tot) * 100)}%</small></div>`; }).join("")}</div></div>
+          <h2>מי שילם כמה</h2><div class="card">${g.members.map((m) => `<div class="brow">${av(g, m.id)}<div class="mid">
+            <div class="nm"><span>${esc(m.name)}</span><span>${fmt(paid[m.id] || 0, g.cur)}</span></div>
+            <div class="track"><i data-w="${((paid[m.id] || 0) / maxP) * 100}" style="background:${mcolor(g, m.id)}"></i></div></div></div>`).join("")}</div>`;
+      }
+    }
+    return `
+      <div class="top"><button class="ib" data-a="home" aria-label="חזרה">→</button><h1>${g.emoji} ${esc(g.name)}</h1>
+        <button class="ib" data-a="groupSettings" aria-label="הגדרות קבוצה">⚙️</button></div>
+      <div class="stats"><div class="stat"><small>סה״כ הוצאות</small><b>${fmt(tot, g.cur)}</b></div>
+        <div class="stat"><small>${my > 0 ? "מגיע לך" : my < 0 ? "החוב שלך" : "המצב שלך"}</small><b class="${my > 0 ? "pos" : my < 0 ? "neg" : ""}">${my ? fmt(my, g.cur) : "מאוזן ✓"}</b></div></div>
+      <div class="tabs" role="tablist">${[["tx", "הוצאות"], ["bal", "יתרות"], ["chart", "תרשימים"]].map(([k, l]) => `<button role="tab" aria-selected="${R.tab === k}" class="${R.tab === k ? "on" : ""}" data-a="tab" data-t="${k}">${l}</button>`).join("")}</div>
+      ${body}
+      <button class="fab" data-a="newExp">＋ הוצאה חדשה</button>`;
+  }
+
+  /* ---------- sheets ---------- */
+  const host = $("#sheetHost");
+  let D = null; // draft of the open form
+  function sheet(html) {
+    host.innerHTML = `<div class="back" data-a="close"></div><div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+    requestAnimationFrame(() => host.querySelectorAll(".back,.sheet").forEach((e) => e.classList.add("on")));
+  }
+  function closeSheet() {
+    const els = host.querySelectorAll(".back,.sheet"); if (!els.length) return;
+    els.forEach((e) => e.classList.remove("on")); D = null;
+    setTimeout(() => { if (!host.querySelector(".back.on")) host.innerHTML = ""; }, 320);
+  }
+  let toastT;
+  function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2400); }
+  function fail(msg) { FX("err"); toast(msg); const s = $(".sheet", host); if (s) { s.classList.remove("shake"); void s.offsetWidth; s.classList.add("shake"); } }
+
+  // ----- group form (new) -----
+  function groupSheet() {
+    D = { kind: "group", emoji: EMOJIS[0], cur: "₪", names: [] };
+    sheet(`<h3>קבוצה חדשה</h3>
+      <label for="gName">שם הקבוצה</label><input class="in" id="gName" placeholder="טיול לצפון, הדירה, יום הולדת…" maxlength="40" autocomplete="off">
+      <div class="lbl">סמל</div><div class="chips" id="gEmo"></div>
+      <div class="lbl">מטבע</div><div class="seg" id="gCur"></div>
+      <label for="gMe">השם שלי</label><input class="in" id="gMe" value="${esc(S.name || "")}" placeholder="אני" maxlength="24" autocomplete="off">
+      <div class="lbl">חברים בקבוצה</div><div class="chips" id="gMem"></div>
+      <div class="acts" style="margin-top:10px"><input class="in" id="gAdd" placeholder="שם חבר/ה" maxlength="24" autocomplete="off" enterkeyhint="done"><button class="btn ghost" data-a="gAddMem">הוסף</button></div>
+      <div class="acts"><button class="btn acc wide" data-a="gSave">יצירת קבוצה</button></div>`);
+    drawGroupForm();
+  }
+  function drawGroupForm() {
+    $("#gEmo").innerHTML = EMOJIS.map((e) => `<button class="chip emo ${D.emoji === e ? "on" : ""}" data-a="gEmoji" data-v="${e}">${e}</button>`).join("");
+    $("#gCur").innerHTML = CURS.map((c) => `<button class="${D.cur === c ? "on" : ""}" data-a="gCur" data-v="${c}">${c}</button>`).join("");
+    $("#gMem").innerHTML = D.names.map((n, i) => `<button class="chip on" data-a="gDelMem" data-i="${i}" aria-label="הסר את ${esc(n)}">${esc(n)} ✕</button>`).join("") || `<span class="muted" style="font-size:14px">הוסיפו לפחות חבר אחד.</span>`;
+  }
+
+  // ----- expense form -----
+  function expSheet(g, tx) {
+    D = { kind: "exp", id: tx && tx.id, amt: tx ? String(tx.amt / 100) : "", desc: tx ? tx.desc : "", cat: tx ? tx.cat : "food", by: tx ? tx.by : g.me,
+      mode: tx ? tx.mode : "equal", date: tx ? tx.date : today(),
+      sel: new Set(tx && tx.mode === "equal" ? Object.keys(tx.parts) : g.members.map((m) => m.id)), exact: {}, shares: {} };
+    g.members.forEach((m) => {
+      D.exact[m.id] = tx && tx.mode === "exact" && tx.parts[m.id] ? String(tx.parts[m.id] / 100) : "";
+      D.shares[m.id] = tx && tx.mode === "shares" ? tx.parts[m.id] || 0 : 1;
+    });
+    sheet(`<h3>${tx ? "עריכת הוצאה" : "הוצאה חדשה"}</h3>
+      <div class="amt"><span>${g.cur}</span><input id="xAmt" inputmode="decimal" placeholder="0" value="${esc(D.amt)}" aria-label="סכום" autocomplete="off"></div>
+      <label for="xDesc">על מה?</label><input class="in" id="xDesc" value="${esc(D.desc)}" placeholder="ארוחת ערב, דלק, מצרכים…" maxlength="60" autocomplete="off">
+      <div class="lbl">קטגוריה</div><div class="chips scroll" id="xCat"></div>
+      <div class="lbl">מי שילם?</div><div class="chips" id="xBy"></div>
+      <div class="lbl">איך מחלקים?</div><div class="seg" id="xMode"></div><div id="xSplit" style="margin-top:12px"></div>
+      <label for="xDate">תאריך</label><input class="in" id="xDate" type="date" value="${D.date}">
+      <div class="acts">${tx ? `<button class="btn danger" data-a="xDel">מחיקה</button>` : ""}<button class="btn acc wide" data-a="xSave">${tx ? "שמירה" : "הוספה"}</button></div>`);
+    drawExp();
+    if (!tx) setTimeout(() => { const a = $("#xAmt"); a && a.focus(); }, 350);
+  }
+  function drawExp() {
+    const g = G(R.gid);
+    $("#xCat").innerHTML = CATS.map(([k, e, l]) => `<button class="chip ${D.cat === k ? "on" : ""}" data-a="xCat" data-v="${k}">${e} ${l}</button>`).join("");
+    $("#xBy").innerHTML = g.members.map((m) => `<button class="chip ${D.by === m.id ? "on" : ""}" data-a="xBy" data-v="${m.id}">${av(g, m.id)}${esc(m.name)}</button>`).join("");
+    $("#xMode").innerHTML = [["equal", "שווה בשווה"], ["exact", "סכומים"], ["shares", "חלקים"]].map(([k, l]) => `<button class="${D.mode === k ? "on" : ""}" data-a="xMode" data-v="${k}">${l}</button>`).join("");
+    drawSplit();
+  }
+  function draftParts() { // parts object for the current draft, or null when invalid
+    const g = G(R.gid), amt = parse(D.amt), parts = {};
+    if (D.mode === "equal") { g.members.forEach((m) => D.sel.has(m.id) && (parts[m.id] = 1)); return Object.keys(parts).length ? parts : null; }
+    if (D.mode === "exact") { let s = 0; g.members.forEach((m) => { const v = parse(D.exact[m.id]); if (v) { parts[m.id] = v; s += v; } }); return s === amt && s > 0 ? parts : null; }
+    let s = 0; g.members.forEach((m) => { if (D.shares[m.id] > 0) { parts[m.id] = D.shares[m.id]; s += D.shares[m.id]; } });
+    return s ? parts : null;
+  }
+  function drawSplit() {
+    const g = G(R.gid), amt = parse(D.amt), box = $("#xSplit");
+    if (D.mode === "equal") {
+      const n = D.sel.size;
+      box.innerHTML = `<div class="chips">${g.members.map((m) => `<button class="chip ${D.sel.has(m.id) ? "on" : ""}" data-a="xSel" data-v="${m.id}">${av(g, m.id)}${esc(m.name)}</button>`).join("")}</div>
+        <div class="hint">${n ? `${n} משתתפים${amt ? ` · ${fmt(Math.round(amt / n), g.cur)} לכל אחד` : ""}` : "בחרו לפחות משתתף אחד"}</div>`;
+    } else if (D.mode === "exact") {
+      box.innerHTML = g.members.map((m) => `<div class="srow">${av(g, m.id)}<span class="nm">${esc(m.name)}</span>
+        <input class="in" inputmode="decimal" placeholder="0" data-i="xExact" data-v="${m.id}" value="${esc(D.exact[m.id])}" aria-label="הסכום של ${esc(m.name)}"></div>`).join("") + `<div class="hint" id="xLeft"></div>`;
+      drawLeft();
+    } else {
+      const o = amt ? owed({ amt, mode: "shares", parts: Object.fromEntries(g.members.map((m) => [m.id, D.shares[m.id]])) }) : {};
+      box.innerHTML = g.members.map((m) => `<div class="srow">${av(g, m.id)}<span class="nm">${esc(m.name)}</span><span class="muted">${amt ? fmt(o[m.id] || 0, g.cur) : ""}</span>
+        <span class="step"><button data-a="xShare" data-v="${m.id}" data-d="-1" aria-label="פחות">−</button><b class="n">${D.shares[m.id]}</b><button data-a="xShare" data-v="${m.id}" data-d="1" aria-label="יותר">+</button></span></div>`).join("")
+        + `<div class="hint">כל "חלק" שווה משקל יחסי בחלוקה</div>`;
+    }
+  }
+  function drawLeft() {
+    const el = $("#xLeft"); if (!el) return;
+    const g = G(R.gid), left = parse(D.amt) - g.members.reduce((s, m) => s + parse(D.exact[m.id]), 0);
+    el.innerHTML = left === 0 && parse(D.amt) ? `<span class="pos">✓ הסכומים מסתדרים</span>` : left > 0 ? `נותר לחלק ${fmt(left, g.cur)}` : `<span class="neg">חריגה של ${fmt(left, g.cur)}</span>`;
+  }
+
+  /* ---------- confetti ---------- */
+  function confetti() {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cv = $("#fx"), c = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1), W = (cv.width = innerWidth * dpr), H = (cv.height = innerHeight * dpr);
+    const ps = Array.from({ length: 110 }, () => ({ x: W / 2, y: H * 0.55, vx: (Math.random() - 0.5) * 22 * dpr, vy: (-Math.random() * 20 - 6) * dpr, s: (5 + Math.random() * 7) * dpr, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, c: COLORS[(Math.random() * COLORS.length) | 0] }));
+    const t0 = performance.now();
+    (function step(t) {
+      const age = (t - t0) / 1800; c.clearRect(0, 0, W, H);
+      if (age >= 1) return;
+      c.globalAlpha = 1 - age * age;
+      ps.forEach((p) => { p.vy += 0.55 * dpr; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr; c.save(); c.translate(p.x, p.y); c.rotate(p.r); c.fillStyle = p.c; c.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * 0.6); c.restore(); });
+      requestAnimationFrame(step);
+    })(t0);
+  }
+
+  /* ---------- actions ---------- */
+  const armed = new WeakSet();
+  const confirmTwice = (el, label) => { // destructive buttons need a second tap
+    if (armed.has(el)) return true;
+    armed.add(el); el.dataset.old = el.textContent; el.textContent = label; FX("pick");
+    setTimeout(() => { if (el.isConnected) { armed.delete(el); el.textContent = el.dataset.old; } }, 3000);
+    return false;
+  };
+  const done = (snd, msg) => { save(); closeSheet(); render(); FX(snd); if (msg) toast(msg); };
+
+  const A = {
+    close() { FX("close"); closeSheet(); },
+    home() { FX("tap"); location.hash = ""; },
+    go(el) { FX("pick"); R.tab = "tx"; location.hash = "g=" + el.dataset.id; },
+    tab(el) { FX("pick"); R.tab = el.dataset.t; render(); },
+
+    newGroup() { FX("open"); groupSheet(); },
+    gEmoji(el) { FX("pick"); D.emoji = el.dataset.v; drawGroupForm(); },
+    gCur(el) { FX("pick"); D.cur = el.dataset.v; drawGroupForm(); },
+    gAddMem() {
+      const inp = $("#gAdd"), n = inp.value.trim(); if (!n) return fail("כתבו שם");
+      D.names.push(n); inp.value = ""; inp.focus(); FX("pick"); drawGroupForm();
+    },
+    gDelMem(el) { FX("del"); D.names.splice(+el.dataset.i, 1); drawGroupForm(); },
+    gSave() {
+      const pending = $("#gAdd").value.trim(); if (pending) D.names.push(pending);
+      const name = $("#gName").value.trim(), me = $("#gMe").value.trim() || "אני";
+      if (!name) return fail("תנו שם לקבוצה");
+      if (!D.names.length) return fail("הוסיפו לפחות חבר אחד");
+      const meId = uid(), g = { id: uid(), name, emoji: D.emoji, cur: D.cur, me: meId, members: [{ id: meId, name: me }, ...D.names.map((n) => ({ id: uid(), name: n }))], tx: [] };
+      S.groups.unshift(g); if (me !== "אני") S.name = me;
+      save(); closeSheet(); FX("coin"); R.tab = "tx"; location.hash = "g=" + g.id;
+    },
+
+    newExp() { FX("open"); expSheet(G(R.gid)); },
+    editExp(el) { FX("open"); const g = G(R.gid); expSheet(g, g.tx.find((t) => t.id === el.dataset.id)); },
+    xCat(el) { FX("pick"); D.cat = el.dataset.v; drawExp(); },
+    xBy(el) { FX("pick"); D.by = el.dataset.v; drawExp(); },
+    xMode(el) { FX("pick"); D.mode = el.dataset.v; drawExp(); },
+    xSel(el) { FX("tap"); const v = el.dataset.v; D.sel.has(v) ? D.sel.delete(v) : D.sel.add(v); drawSplit(); },
+    xShare(el) { const v = el.dataset.v, nv = D.shares[v] + +el.dataset.d; if (nv < 0 || nv > 99) return FX("err"); D.shares[v] = nv; FX("tap"); drawSplit(); },
+    xSave() {
+      const g = G(R.gid), amt = parse(D.amt);
+      if (!amt) return fail("הזינו סכום");
+      const parts = draftParts();
+      if (!parts) return fail(D.mode === "exact" ? "הסכומים לא מסתכמים לסך ההוצאה" : "בחרו בין מי לחלק");
+      const tx = { id: D.id || uid(), type: "exp", amt, desc: D.desc.trim() || CAT[D.cat].label, cat: D.cat, by: D.by, mode: D.mode, parts, date: D.date || today(), ts: String(Date.now()) };
+      const i = g.tx.findIndex((t) => t.id === tx.id);
+      if (i >= 0) { tx.ts = g.tx[i].ts; g.tx[i] = tx; } else g.tx.push(tx);
+      done("coin", i >= 0 ? "ההוצאה עודכנה" : "ההוצאה נוספה");
+    },
+    xDel(el) {
+      if (!confirmTwice(el, "בטוח? שוב")) return;
+      const g = G(R.gid); g.tx = g.tx.filter((t) => t.id !== D.id); done("del", "ההוצאה נמחקה");
+    },
+
+    settle(el) {
+      FX("open"); const g = G(R.gid), { from, to, amt } = el.dataset;
+      D = { kind: "pay", from, to };
+      sheet(`<h3>סגירת חוב</h3>
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;font-weight:600">${av(g, from)} ${esc(M(g, from).name)} <span class="arrow">←</span> ${esc(M(g, to).name)} ${av(g, to)}</div>
+        <div class="amt"><span>${g.cur}</span><input id="pAmt" inputmode="decimal" value="${+amt / 100}" aria-label="סכום ההעברה"></div>
+        <div class="hint">אפשר לעדכן את הסכום אם הועבר רק חלק</div>
+        <div class="acts"><button class="btn acc wide" data-a="paySave">✓ ההעברה בוצעה</button></div>`);
+    },
+    paySave() {
+      const amt = parse($("#pAmt").value); if (!amt) return fail("הזינו סכום");
+      G(R.gid).tx.push({ id: uid(), type: "pay", by: D.from, to: D.to, amt, date: today(), ts: String(Date.now()) });
+      done("settle", "החוב נסגר 🎉"); confetti();
+    },
+    editPay(el) {
+      FX("open"); const g = G(R.gid), t = g.tx.find((x) => x.id === el.dataset.id); D = { kind: "payView", id: t.id };
+      sheet(`<h3>העברה</h3><div class="card" style="text-align:center">${esc(M(g, t.by).name)} העביר/ה ל${esc(M(g, t.to).name)}
+        <div style="font-family:var(--fd);font-size:38px">${fmt(t.amt, g.cur)}</div><span class="muted">${dayLabel(t.date)}</span></div>
+        <div class="acts"><button class="btn danger wide" data-a="payDel">ביטול ההעברה</button></div>`);
+    },
+    payDel(el) {
+      if (!confirmTwice(el, "בטוח? לחצו שוב")) return;
+      const g = G(R.gid); g.tx = g.tx.filter((t) => t.id !== D.id); done("del", "ההעברה בוטלה");
+    },
+
+    async share() {
+      FX("tap"); const g = G(R.gid), net = nets(g), tr = transfers(net);
+      const text = [`חצי־חצי · ${g.emoji} ${g.name}`, `סה״כ הוצאות: ${plain(total(g), g.cur)}`, "", "יתרות:",
+        ...g.members.map((m) => `• ${m.name}: ${net[m.id] > 0 ? "+" : net[m.id] < 0 ? "-" : ""}${plain(net[m.id], g.cur)}`), "",
+        ...(tr.length ? ["לסגירת חשבון:", ...tr.map((t) => `• ${M(g, t.from).name} מעביר/ה ל${M(g, t.to).name} ${plain(t.amt, g.cur)}`)] : ["כולם מאוזנים 🎉"])].join("\n");
+      try {
+        if (navigator.share) await navigator.share({ text });
+        else { await navigator.clipboard.writeText(text); toast("הסיכום הועתק"); }
+      } catch (e) { if (e && e.name !== "AbortError") toast("לא הצלחתי לשתף"); }
+    },
+
+    groupSettings() {
+      FX("open"); const g = G(R.gid); D = { kind: "gset" };
+      const used = new Set(); g.tx.forEach((t) => { used.add(t.by); t.to && used.add(t.to); t.parts && Object.keys(t.parts).forEach((i) => used.add(i)); });
+      sheet(`<h3>הגדרות קבוצה</h3>
+        <label for="sName">שם הקבוצה</label><div class="acts" style="margin:0"><input class="in" id="sName" value="${esc(g.name)}" maxlength="40"><button class="btn ghost" data-a="sRename">שמור</button></div>
+        <div class="lbl">חברים</div>${g.members.map((m) => `<div class="srow">${av(g, m.id)}<span class="nm">${esc(m.name)}${m.id === g.me ? ' <small class="muted">(אני)</small>' : ""}</span>
+          ${m.id !== g.me && !used.has(m.id) ? `<button class="btn sm danger" data-a="sDelMem" data-v="${m.id}">הסר</button>` : ""}</div>`).join("")}
+        <div class="hint" style="text-align:start">אפשר להסיר רק חברים שלא מופיעים בהוצאות.</div>
+        <div class="acts" style="margin-top:10px"><input class="in" id="sAdd" placeholder="חבר/ה חדש/ה" maxlength="24"><button class="btn ghost" data-a="sAddMem">הוסף</button></div>
+        <div class="acts"><button class="btn danger wide" data-a="sDelGroup">מחיקת הקבוצה</button></div>`);
+    },
+    sRename() { const n = $("#sName").value.trim(); if (!n) return fail("שם ריק"); G(R.gid).name = n; done("pick", "השם עודכן"); },
+    sAddMem() { const n = $("#sAdd").value.trim(); if (!n) return fail("כתבו שם"); G(R.gid).members.push({ id: uid(), name: n }); save(); render(); FX("coin"); A.groupSettings(); },
+    sDelMem(el) { const g = G(R.gid); g.members = g.members.filter((m) => m.id !== el.dataset.v); save(); render(); FX("del"); A.groupSettings(); },
+    sDelGroup(el) {
+      if (!confirmTwice(el, "למחוק הכול? לחצו שוב")) return;
+      S.groups = S.groups.filter((g) => g.id !== R.gid); save(); closeSheet(); FX("del"); toast("הקבוצה נמחקה"); location.hash = "";
+    },
+
+    settings() {
+      FX("open"); D = { kind: "set" };
+      sheet(`<h3>הגדרות</h3>
+        <button class="sw ${S.sound ? "on" : ""}" data-a="tSound" role="switch" aria-checked="${S.sound}">🔊 צלילים<i></i></button>
+        <button class="sw ${S.haptic ? "on" : ""}" data-a="tHaptic" role="switch" aria-checked="${S.haptic}">📳 רטט (הפטיקס)<i></i></button>
+        <div class="hint" style="text-align:start">הנתונים נשמרים במכשיר הזה בלבד. גיבוי מאפשר להעביר אותם למכשיר אחר.</div>
+        <div class="acts"><button class="btn ghost wide" data-a="export">⬇️ גיבוי</button><button class="btn ghost wide" data-a="import">⬆️ שחזור</button></div>
+        <input type="file" id="imp" accept="application/json,.json" hidden>`);
+    },
+    tSound(el) { S.sound = !S.sound; save(); el.classList.toggle("on", S.sound); el.setAttribute("aria-checked", S.sound); FX("pick"); },
+    tHaptic(el) { S.haptic = !S.haptic; save(); el.classList.toggle("on", S.haptic); el.setAttribute("aria-checked", S.haptic); FX("coin"); },
+    export() {
+      FX("tap"); const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
+      a.download = `hetzi-hetzi-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    },
+    import() { FX("tap"); $("#imp").click(); },
+    demo() {
+      const ids = [uid(), uid(), uid(), uid()], [me, a, b, c] = ids, all = { [me]: 1, [a]: 1, [b]: 1, [c]: 1 }, d = today();
+      const x = (desc, cat, amt, by, mode = "equal", parts = all) => ({ id: uid(), type: "exp", desc, cat, amt: amt * 100, by, mode, parts, date: d, ts: String(Date.now() + Math.random()) });
+      S.groups.unshift({ id: uid(), name: "טיול לצפון", emoji: "🏕️", cur: "₪", me, members: [{ id: me, name: S.name || "אני" }, { id: a, name: "דנה" }, { id: b, name: "יובל" }, { id: c, name: "נועה" }],
+        tx: [x("צימר בגליל", "stay", 1600, me), x("דלק", "fuel", 320, a), x("ארוחת ערב", "food", 540, b, "shares", { [me]: 1, [a]: 1, [b]: 2, [c]: 1 }), x("קניות לסופ״ש", "market", 410, a), x("קיאקים", "fun", 360, c, "equal", { [me]: 1, [b]: 1, [c]: 1 })] });
+      save(); render(); FX("coin");
+    },
+  };
+
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-a]"); if (!el) return;
+    const fn = A[el.dataset.a]; if (fn) fn(el, e);
+  });
+  document.addEventListener("input", (e) => {
+    const t = e.target; if (!D) return;
+    if (t.id === "xAmt") { D.amt = t.value; t.style.width = Math.max(2, t.value.length + 0.4) + "ch"; drawSplit(); }
+    else if (t.id === "xDesc") D.desc = t.value;
+    else if (t.id === "xDate") D.date = t.value;
+    else if (t.dataset.i === "xExact") { D.exact[t.dataset.v] = t.value; drawLeft(); }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.id !== "imp" || !e.target.files[0]) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const d = JSON.parse(fr.result);
+        if (!d || !Array.isArray(d.groups) || !d.groups.every((g) => g.id && Array.isArray(g.members) && Array.isArray(g.tx))) throw 0;
+        S = { v: 1, sound: true, haptic: true, ...d }; save(); closeSheet(); location.hash = ""; render(); FX("coin"); toast("הנתונים שוחזרו");
+      } catch (err) { fail("קובץ הגיבוי לא תקין"); }
+    };
+    fr.readAsText(e.target.files[0]);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && host.firstChild) A.close();
+    if (e.key === "Enter" && e.target.id === "gAdd") { e.preventDefault(); A.gAddMem(); }
+    if (e.key === "Enter" && e.target.id === "sAdd") { e.preventDefault(); A.sAddMem(); }
+  });
+
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  route();
+})();
+</script>
+</body>
+</html>
